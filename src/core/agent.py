@@ -1,11 +1,13 @@
 import os
 
 import numpy as np
+import torch
 from stable_baselines3 import PPO
 
 from src.core.bandarmology import analyze_bandar_flow  # Untuk Saham
 from src.core.config_assets import get_asset_info
 from src.core.data_loader import fetch_data
+from src.core.llm_analyst import consult_groq_analyst  # <--- TAMBAHKAN INI
 from src.core.money_management import calculate_lot_size  # (Lihat bawah)
 from src.core.smart_money import analyze_forex_whale  # <--- [BARU] Untuk Forex
 

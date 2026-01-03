@@ -14,6 +14,7 @@ from src.api.owner_ops import router as owner_router
 from src.api.roles import UserRole  # Pastikan file api/roles.py ada
 from src.api.roles import check_permission
 from src.api.search_routes import router as search_router
+from src.api.user_routes import router as user_router
 
 # Import koleksi MongoDB kita
 from src.core.database import fix_id, requests_collection, users_collection
@@ -22,8 +23,6 @@ from src.core.database import fix_id, requests_collection, users_collection
 from src.core.logger import logger
 from src.core.producer import signal_producer_task
 from src.core.signal_bus import signal_bus
-
-# from src.api.user_routes import router as user_router
 
 app = FastAPI(title="AI Trading Hub (MongoDB)")
 
@@ -56,7 +55,7 @@ async def log_requests(request: Request, call_next):
 app.include_router(auth_router)
 app.include_router(owner_router)
 app.include_router(search_router)
-# app.include_router(user_router)
+app.include_router(user_router)
 
 
 # ==========================================

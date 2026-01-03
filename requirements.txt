@@ -18,3 +18,4 @@ requests
 lxml
 torch --index-url https://download.pytorch.org/whl/cpu
 requests_cache
+email-validator

@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends
 
-from api.auth import get_current_user
-from core.database import users_collection
+# Fix Imports: Tambahkan 'src.' dan import 'fix_id'
+from src.api.auth import get_current_user
+from src.core.database import fix_id, users_collection
 
 router = APIRouter(prefix="/user", tags=["User Data"])
 
 
 @router.post("/watchlist/add")
 async def add_watchlist(symbol: str, user: dict = Depends(get_current_user)):
-    # $addToSet mencegah duplikat otomatis
     await users_collection.update_one(
         {"_id": user["_id"]}, {"$addToSet": {"watchlist": symbol}}
     )
@@ -17,7 +17,6 @@ async def add_watchlist(symbol: str, user: dict = Depends(get_current_user)):
 
 @router.delete("/watchlist/remove")
 async def remove_watchlist(symbol: str, user: dict = Depends(get_current_user)):
-    # $pull menghapus item dari array
     await users_collection.update_one(
         {"_id": user["_id"]}, {"$pull": {"watchlist": symbol}}
     )
@@ -26,15 +25,12 @@ async def remove_watchlist(symbol: str, user: dict = Depends(get_current_user)):
 
 @router.get("/watchlist")
 async def get_my_watchlist(user: dict = Depends(get_current_user)):
-    # Ambil data terbaru dari DB (karena user session mungkin data lama)
     current_data = await users_collection.find_one({"_id": user["_id"]})
-    return current_data.get("watchlist", [])
+    return current_data.get("watchlist", []) if current_data else []
 
 
-# Contoh: Admin mencari user berdasarkan email (Partial Search)
 @router.get("/admin/search-user")
 async def search_users(q: str):
-    # Regex 'i' = case insensitive
     cursor = users_collection.find({"email": {"$regex": q, "$options": "i"}})
     users = await cursor.to_list(length=10)
     return [fix_id(u) for u in users]
