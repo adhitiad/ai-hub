@@ -1,0 +1,20 @@
+fastapi
+uvicorn
+pandas
+pandas_ta
+yfinance
+gymnasium
+shimmy>=0.2.1
+stable-baselines3
+python-dotenv
+psutil
+pydantic
+passlib[bcrypt] 
+motor
+pyjwt
+groq
+beautifulsoup4
+requests
+lxml
+torch --index-url https://download.pytorch.org/whl/cpu
+requests_cache
