@@ -1,15 +1,18 @@
+import logging
 import os
 
 import numpy as np
 import torch
 from stable_baselines3 import PPO
 
+from src.core.agent_torch import ForexTraderNet, optimize_model_for_inference
 from src.core.bandarmology import analyze_bandar_flow  # Untuk Saham
 from src.core.config_assets import get_asset_info
 from src.core.data_loader import fetch_data
 from src.core.llm_analyst import consult_groq_analyst  # <--- TAMBAHKAN INI
 from src.core.money_management import calculate_lot_size  # (Lihat bawah)
 from src.core.smart_money import analyze_forex_whale  # <--- [BARU] Untuk Forex
+from src.core.torch_config import device
 
 MODEL_DIR = "models"
 MODEL_PATH = "models/forex_net.pt"
@@ -114,7 +117,6 @@ def get_detailed_signal(symbol):
 
         # Money Management
         sl_pips = sl_dist * info["pip_scale"]
-        lot = calculate_lot_size(1000, 2.0, sl_pips, symbol)
 
         user_balance = 100000000 if info["type"] == "stock_indo" else 1000
 
@@ -238,7 +240,10 @@ def get_detailed_signal(symbol):
                 "Risk_Level": f"{ai_analysis['risk_score']}/10",
                 "Note": ai_analysis["reason"],
             }
+
+        logging.info(f"Response: {response}")
         return response
 
     except Exception as e:
+        logging.error(f"Error: {str(e)}")
         return {"error": str(e)}

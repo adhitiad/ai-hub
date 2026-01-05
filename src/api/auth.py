@@ -1,11 +1,16 @@
+import os
 from datetime import datetime
 
+import dotenv
 from fastapi import HTTPException, Security
 from fastapi.security.api_key import APIKeyHeader
 
 from src.core.database import fix_id, users_collection  # Ganti Supabase jadi Mongo
 
-api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
+dotenv.load_dotenv()
+
+api_key_header_name = os.getenv("API_KEY_HEADER", "X-API-Key")
+api_key_header = APIKeyHeader(name=api_key_header_name)
 
 
 async def get_current_user(api_key: str = Security(api_key_header)):

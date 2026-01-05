@@ -10,6 +10,7 @@ from pydantic import BaseModel
 # --- API Imports ---
 from src.api.auth import get_current_user
 from src.api.auth_routes import router as auth_router
+from src.api.new_route import router as newroute
 from src.api.owner_ops import router as owner_router
 from src.api.roles import UserRole  # Pastikan file api/roles.py ada
 from src.api.roles import check_permission
@@ -56,6 +57,7 @@ app.include_router(auth_router)
 app.include_router(owner_router)
 app.include_router(search_router)
 app.include_router(user_router)
+app.include_router(newroute)
 
 
 # ==========================================
@@ -116,7 +118,7 @@ async def request_role_upgrade(
 async def get_pending_requests(user: dict = Depends(get_current_user)):
     """Admin melihat siapa saja yang minta upgrade."""
 
-    if not check_permission(user.get("role"), UserRole.ADMIN):
+    if not check_permission(user.get("role", ""), UserRole.ADMIN):
         raise HTTPException(
             status_code=403, detail="Hanya Admin yang boleh melihat ini."
         )
@@ -136,7 +138,7 @@ async def process_upgrade_request(
 ):
     """Admin menyetujui atau menolak request."""
 
-    if not check_permission(user.get("role"), UserRole.ADMIN):
+    if not check_permission(user.get("role", ""), UserRole.ADMIN):
         raise HTTPException(status_code=403, detail="Access Denied.")
 
     from bson import ObjectId  # Butuh ini untuk convert string ID ke Mongo ID

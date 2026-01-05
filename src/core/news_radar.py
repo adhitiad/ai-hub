@@ -1,128 +1,153 @@
 import logging
+import time
 from datetime import datetime
 
 import requests
 from bs4 import BeautifulSoup
 
-# Setup Logger jika belum ada
+# Setup Logger
 logger = logging.getLogger("backend")
 
 
-def get_forex_calendar():
-    """
-    Scraping data Real-Time dari widget Investing.com (Forex Pros Tools).
-    Menggantikan logika PHP simple_html_dom.
-    """
-    url = "https://sslecal2.forexprostools.com/"
+class NewsRadar:
+    def __init__(self):
+        # Penyimpanan Cache Data
+        self._cache_data = []
+        self._last_update = 0
+        self._cache_duration = 600  # 600 detik = 10 menit (Agar tidak kena blokir)
 
-    # Headers penting agar tidak diblokir sebagai bot
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-    }
+    def _scrape_forex_factory(self):
+        """
+        Scraping data Real-Time dari widget Investing.com.
+        """
+        url = "https://sslecal2.forexprostools.com/"
 
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
 
-        if response.status_code != 200:
-            logger.error(f"Failed to fetch calendar. Status: {response.status_code}")
-            return []
+        try:
+            logger.info("📡 Scraping Economic Calendar...")
+            response = requests.get(url, headers=headers, timeout=10)
 
-        soup = BeautifulSoup(response.content, "lxml")  # Parser cepat
+            if response.status_code != 200:
+                logger.error(
+                    f"Failed to fetch calendar. Status: {response.status_code}"
+                )
+                return []
 
-        # Selektor CSS: Cari tabel dengan ID ecEventsTable
-        table = soup.find("table", id="ecEventsTable")
-        if not table:
-            return []
+            soup = BeautifulSoup(response.content, "lxml")
 
-        # Cari semua baris (tr) yang ID-nya mengandung 'eventRowId'
-        # PHP: $dom->getElementById("#ecEventsTable")->find("tr[id*='eventRowId']")
-        rows = table.find_all("tr", id=lambda x: x and "eventRowId" in x)
+            table = soup.find("table", id="ecEventsTable")
+            if not table:
+                return []
 
-        data = []
+            all_rows = table.find_all("tr")
+            rows = [
+                row
+                for row in all_rows
+                if row.get("id") and "eventRowId" in str(row.get("id", ""))
+            ]
 
-        for row in rows:
-            # 1. Ambil Timestamp (dari atribut event_timestamp)
-            # Format asli: "2024-05-21 14:30:00"
-            raw_timestamp = row.get("event_timestamp", "")
-            time_display = ""
+            data = []
 
-            try:
-                # Kita ubah jadi HH:MM saja untuk display
-                dt_obj = datetime.strptime(raw_timestamp, "%Y-%m-%d %H:%M:%S")
-                time_display = dt_obj.strftime("%H:%M")
-            except:
-                time_display = raw_timestamp
+            for row in rows:
+                # 1. Timestamp
+                raw_timestamp = row.get("event_timestamp", "")
+                time_display = ""
+                try:
+                    if isinstance(raw_timestamp, str) and raw_timestamp:
+                        dt_obj = datetime.strptime(raw_timestamp, "%Y-%m-%d %H:%M:%S")
+                        time_display = dt_obj.strftime("%H:%M")
+                    else:
+                        time_display = str(raw_timestamp)
+                except:
+                    time_display = str(raw_timestamp)
 
-            # 2. Ambil Currency (PHP: td.flagCur)
-            currency_cell = row.select_one("td.flagCur")
-            currency = (
-                currency_cell.get_text(strip=True).replace("\u00a0", "")
-                if currency_cell
-                else ""
-            )
-
-            # 3. Ambil Impact (PHP: hitung i.grayFullBullishIcon)
-            # Logika Investing: 1 Bull = Low, 2 Bull = Medium, 3 Bull = High
-            sentiment_cell = row.select_one("td.sentiment")
-            bulls_count = (
-                len(sentiment_cell.select("i.grayFullBullishIcon"))
-                if sentiment_cell
-                else 0
-            )
-
-            impact_str = "LOW"
-            if bulls_count == 2:
-                impact_str = "MEDIUM"
-            if bulls_count == 3:
-                impact_str = "HIGH"
-
-            # 4. Ambil Nama Event (PHP: td.event)
-            event_cell = row.select_one("td.event")
-            event_name = (
-                event_cell.get_text(strip=True) if event_cell else "Unknown Event"
-            )
-
-            # 5. Data Angka (Actual, Forecast, Previous)
-            actual = (
-                row.select_one("td.act").get_text(strip=True)
-                if row.select_one("td.act")
-                else ""
-            )
-            forecast = (
-                row.select_one("td.fore").get_text(strip=True)
-                if row.select_one("td.fore")
-                else ""
-            )
-            prev = (
-                row.select_one("td.prev").get_text(strip=True)
-                if row.select_one("td.prev")
-                else ""
-            )
-
-            # Filter HANYA berita High/Medium Impact (Opsional, agar dashboard tidak penuh)
-            # Jika ingin semua, hapus if ini.
-            if impact_str in ["HIGH", "MEDIUM"]:
-                data.append(
-                    {
-                        "time": time_display,  # "19:30"
-                        "currency": currency,  # "USD"
-                        "event": event_name,  # "Non-Farm Payrolls"
-                        "impact": impact_str,  # "HIGH"
-                        "actual": actual,
-                        "forecast": forecast,
-                        "previous": prev,
-                        "raw_datetime": raw_timestamp,  # Disimpan untuk keperluan sorting nanti
-                    }
+                # 2. Currency
+                currency_cell = row.select_one("td.flagCur")
+                currency = (
+                    currency_cell.get_text(strip=True).replace("\u00a0", "")
+                    if currency_cell
+                    else ""
                 )
 
-        return data
+                # 3. Impact
+                sentiment_cell = row.select_one("td.sentiment")
+                bulls_count = (
+                    len(sentiment_cell.select("i.grayFullBullishIcon"))
+                    if sentiment_cell
+                    else 0
+                )
 
-    except Exception as e:
-        logger.error(f"Error scraping news: {e}")
-        return []
+                impact_str = "LOW"
+                if bulls_count == 2:
+                    impact_str = "MEDIUM"
+                if bulls_count == 3:
+                    impact_str = "HIGH"
+
+                # 4. Event Name
+                event_cell = row.select_one("td.event")
+                event_name = (
+                    event_cell.get_text(strip=True) if event_cell else "Unknown Event"
+                )
+
+                # 5. Data Angka
+                actual_cell = row.select_one("td.act")
+                actual = actual_cell.get_text(strip=True) if actual_cell else ""
+                forecast_cell = row.select_one("td.fore")
+                forecast = forecast_cell.get_text(strip=True) if forecast_cell else ""
+                prev_cell = row.select_one("td.prev")
+                prev = prev_cell.get_text(strip=True) if prev_cell else ""
+
+                # Filter Impact
+                if impact_str in ["HIGH", "MEDIUM"]:
+                    data.append(
+                        {
+                            "time": time_display,
+                            "currency": currency,
+                            "event": event_name,
+                            "impact": impact_str,
+                            "actual": actual,
+                            "forecast": forecast,
+                            "previous": prev,
+                            "raw_datetime": raw_timestamp,
+                        }
+                    )
+
+            logger.info(f"✅ Scraped {len(data)} events successfully.")
+            return data
+
+        except Exception as e:
+            logger.error(f"❌ Error scraping news: {e}")
+            return []
+
+    def get_upcoming_events(self, limit=10):
+        """
+        Mengembalikan data berita.
+        Menggunakan Cache jika request dilakukan < 10 menit yang lalu.
+        """
+        current_time = time.time()
+
+        # Cek Cache
+        if self._cache_data and (
+            current_time - self._last_update < self._cache_duration
+        ):
+            # logger.info("Using Cached News Data")
+            return self._cache_data[:limit]
+
+        # Jika Cache Expired atau Kosong, Scrape ulang
+        new_data = self._scrape_forex_factory()
+
+        if new_data:
+            self._cache_data = new_data
+            self._last_update = current_time
+            return new_data[:limit]
+        else:
+            logger.warning("No new data found, using cached data.")
+            return self._cache_data[:limit] if self._cache_data else []
 
 
-# Fungsi wrapper agar kompatibel dengan kode yang sudah ada
-def get_high_impact_news():
-    return get_forex_calendar()
+# Singleton Instance
+news_radar = NewsRadar()

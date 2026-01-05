@@ -1,3 +1,4 @@
+import logging
 import time
 
 import pandas as pd
@@ -68,6 +69,13 @@ def fetch_data(symbol="EURUSD=X", period="1y", interval="1h", retries=3):
             df.ta.sma(length=20, append=True)
             df.ta.sma(length=50, append=True)
             df.ta.atr(length=14, append=True)
+            # --- 🛠️ FIX ATR COLUMN NAME ---
+            # pandas_ta sering menamai kolom ATR sebagai 'ATRr_14' (RMA)
+            if "ATRr_14" in df.columns:
+                df = df.rename(columns={"ATRr_14": "ATR_14"})
+
+            # Debugging (Opsional): Cek kolom apa saja yang ada kalau masih error
+            logging.info(f"Columns in {symbol}: {df.columns.tolist()}")
 
             # 5. Drop NaN
             df_clean = df.dropna()

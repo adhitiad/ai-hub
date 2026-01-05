@@ -1,12 +1,15 @@
+import ast
 import os
 import shutil
 
+import black
 import psutil
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
 from src.api.auth import get_current_user
 from src.api.roles import UserRole, check_permission
+from src.core.llm_analyst import ai_fix_code
 from src.core.logger import logging
 from src.core.signal_bus import signal_bus
 
@@ -81,13 +84,13 @@ def read_file_content(path_data: dict, user: dict = Depends(verify_owner)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/files/save")
-def save_file(data: FileModel, user=Depends(verify_owner)):
-    path = os.path.abspath(os.path.join(BASE_DIR, data.path))
-    shutil.copy(path, path + ".bak")
-    with open(path, "w") as f:
-        f.write(data.content)
-    return {"status": "saved"}
+# @router.post("/files/save")
+# def save_file(data: FileModel, user=Depends(verify_owner)):
+#     path = os.path.abspath(os.path.join(BASE_DIR, data.path))
+#     shutil.copy(path, path + ".bak")
+#     with open(path, "w") as f:
+#         f.write(data.content)
+#     return {"status": "saved"}
 
 
 @router.get("/logs/stream")
@@ -139,3 +142,77 @@ def restart_bot_logic(user: dict = Depends(verify_owner)):
         "status": "success",
         "message": "Internal state cleared. Bot will fetch new data in next cycle.",
     }
+
+
+@router.post("/files/validate-fix")
+def validate_and_fix_code(data: FileWriteModel, user: dict = Depends(verify_owner)):
+    """
+    Fitur Magic:
+    1. Cek Syntax
+    2. Jika Aman -> Format pakai Black (Prettier)
+    3. Jika Error -> Minta AI perbaiki (Auto Fix)
+    """
+    code = data.content
+
+    try:
+        # 1. Cek Syntax & Format (Black)
+        # Black akan throw error jika syntax python salah
+        formatted_code = black.format_str(code, mode=black.Mode())
+        return {
+            "status": "valid",
+            "message": "✅ Code Formatted (Black)",
+            "content": formatted_code,
+        }
+
+    except Exception as e:
+        # Syntax Error terdeteksi!
+        error_msg = str(e)
+
+        # 2. Oper ke AI untuk diperbaiki
+        print(f"⚠️ Syntax Error Detected: {error_msg}. Asking AI to fix...")
+        fixed_code = ai_fix_code(code, error_msg)
+
+        if fixed_code:
+            # Validasi ulang hasil kerjaan AI
+            try:
+                ast.parse(fixed_code)  # Cek syntax lagi
+                return {
+                    "status": "fixed",
+                    "message": "✨ AI Fixed the Syntax Error!",
+                    "content": fixed_code,
+                }
+            except:
+                pass  # AI gagal fix
+
+        return {
+            "status": "error",
+            "message": f"❌ Syntax Error: {error_msg}",
+            "content": code,  # Kembalikan kode asli
+        }
+
+
+@router.post("/files/save")
+def save_file(data: FileWriteModel, user: dict = Depends(verify_owner)):
+    """
+    Menyimpan file TAPI menolak jika Syntax Error.
+    Mencegah Server Crash (Error 500).
+    """
+    path = os.path.abspath(os.path.join(BASE_DIR, data.path))
+
+    # 1. Safety Check: Cek Syntax Python sebelum save
+    if data.path.endswith(".py"):
+        try:
+            ast.parse(data.content)
+        except SyntaxError as e:
+            raise HTTPException(
+                400, detail=f"Cannot Save: Syntax Error at line {e.lineno}"
+            )
+
+    # 2. Backup & Save
+    if os.path.exists(path):
+        shutil.copy(path, path + ".bak")
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(data.content)
+
+    return {"status": "saved"}

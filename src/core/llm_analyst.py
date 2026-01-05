@@ -88,3 +88,42 @@ def consult_groq_analyst(symbol, asset_info, signal_data, whale_data):
             "est_loss": "Calc by System",
             "risk_score": 5,
         }
+
+
+def ai_fix_code(code_content, error_message):
+    """
+    Mengirim kode rusak ke AI untuk diperbaiki syntax-nya.
+    """
+    system_prompt = """
+    You are a Python Expert. 
+    Your task is to FIX the Syntax Error in the provided Python code.
+    Do NOT change the logic. Only fix indentation, missing colons, parenthesis, etc.
+    Output ONLY the fixed code. No markdown, no explanations.
+    """
+
+    user_content = f"""
+    ERROR: {error_message}
+    
+    BROKEN CODE:
+    {code_content}
+    """
+
+    try:
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content},
+            ],
+            temperature=0.1,  # Sangat rendah agar presisi
+        )
+
+        # Bersihkan output (kadang AI kasih ```python ... ```)
+        fixed_code = completion.choices[0].message.content
+        if fixed_code is None:
+            return None
+        fixed_code = fixed_code.replace("```python", "").replace("```", "").strip()
+
+        return fixed_code
+    except (ValueError, AttributeError):
+        return None
