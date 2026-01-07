@@ -13,13 +13,29 @@ class AdvancedForexEnv(gym.Env):
 
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, df, initial_balance=1000, spread=0.0002, commission=0.0):
+    def __init__(
+        self,
+        df,
+        initial_balance=1000,
+        spread=0.0002,
+        commission=0.0,
+        mistakes_data=None,
+    ):
         super(AdvancedForexEnv, self).__init__()
 
         self.df = df
         self.max_steps = len(df) - 1
         self.spread = spread
         self.commission = commission
+
+        # --- MEMORY INJECTION ---
+        # Dictionary berisi { "TIMESTAMP": ACTION_YANG_SALAH }
+        self.mistakes_data = mistakes_data if mistakes_data else {}
+
+        # Initialize attributes
+        self.net_worth = 1000
+        self.position = 0
+        self.entry_price = 0
 
         # --- Action Space ---
         # 0: Hold, 1: Buy, 2: Sell
@@ -114,6 +130,23 @@ class AdvancedForexEnv(gym.Env):
 
         # 5. Truncated (Biasanya False untuk trading, kecuali dibatasi waktu strict)
         truncated = False
+
+        # --- LOGIKA BELAJAR DARI KESALAHAN (REFLECTIVE LEARNING) ---
+
+        # 1. Cek tanggal candle saat ini
+        current_time_idx = self.df.index[self.current_step]
+        current_time_str = str(current_time_idx)  # Sesuaikan format dengan memory.py
+
+        # 2. Apakah di masa lalu kita pernah rugi di candle ini?
+        if current_time_str in self.mistakes_data:
+            past_bad_action = self.mistakes_data[current_time_str]
+
+            # 3. Apakah AI mencoba mengulangi aksi bodoh itu?
+            if action == past_bad_action:
+                # HUKUMAN BERAT!
+                # Ini mengajarkan AI: "Dulu kamu BUY di pola ini dan hancur. JANGAN ULANGI!"
+                penalty = -500
+                reward += penalty
 
         # 6. Info tambahan
         info = {

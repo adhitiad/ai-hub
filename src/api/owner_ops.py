@@ -216,3 +216,31 @@ def save_file(data: FileWriteModel, user: dict = Depends(verify_owner)):
         f.write(data.content)
 
     return {"status": "saved"}
+
+
+from src.core.database import db
+
+
+@router.get("/db/view/{collection_name}")
+async def view_database_content(
+    collection_name: str, limit: int = 20, user: dict = Depends(verify_owner)
+):
+    """
+    Owner Only: Mengintip isi database mentah.
+    """
+    if collection_name not in ["users", "signals", "transactions", "upgrade_requests"]:
+        raise HTTPException(400, "Restricted Collection")
+
+    try:
+        cursor = db[collection_name].find({}).limit(limit).sort("_id", -1)
+        data = await cursor.to_list(length=limit)
+
+        # Convert ObjectId to string
+        for item in data:
+            if "_id" in item:
+                item["id"] = str(item["_id"])
+                del item["_id"]
+
+        return data
+    except Exception as e:
+        raise HTTPException(500, str(e))

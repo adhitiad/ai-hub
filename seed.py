@@ -1,0 +1,2612 @@
+import asyncio
+
+from src.core.database import assets_collection
+
+# ---------------------------------------------------------
+# PASTE SEMUA DATA PANJANG KAMU DI DALAM KUTIP TIGA DI BAWAH INI
+# (Saya masukkan sebagian contoh dari data kamu untuk tes)
+# ---------------------------------------------------------
+raw_data = """
+EURUSD=X
+EUR/USD
+1.1682
+-0.0038	-0.33%	
+1.02
+1.19
+JPY=X
+USD/JPY
+156.8540
++0.0120	+0.01%	
+139.89
+158.86
+GBPUSD=X
+GBP/USD
+1.3424
+-0.0032	-0.24%	
+1.21
+1.38
+AUDUSD=X
+AUD/USD
+0.6676
+-0.0017	-0.26%	
+0.59
+0.67
+NZDUSD=X
+NZD/USD
+0.5750
+-0.0019	-0.32%	
+0.55
+0.61
+EURJPY=X
+EUR/JPY
+183.2360
+-0.6440	-0.35%	
+154.81
+184.90
+GBPJPY=X
+GBP/JPY
+210.5610
+-0.5860	-0.28%	
+184.42
+211.58
+EURGBP=X
+EUR/GBP
+0.8702
+-0.0006	-0.07%	
+0.82
+0.89
+EURCAD=X
+EUR/CAD
+1.6095
++0.0007	+0.05%	
+1.47
+1.65
+EURSEK=X
+EUR/SEK
+10.7902
+-0.0095	-0.09%	
+10.67
+11.53
+EURCHF=X
+	
+C
+CPRO.JK
+PT Central Proteina Prima Tbk
+86.00	+20.00	+30.30%	4.079B	264.074M	5.123T	9.73	
+50.00
+78.00
+ID	3.932T	
+
+2	
+G
+GOTO.JK
+PT GoTo Gojek Tokopedia Tbk
+68.00	-1.00	-1.45%	3.429B	3.991B	73.031T	--	
+53.00
+89.00
+ID	73.031T	
+
+3	
+D
+DEWA.JK
+PT Darma Henwa Tbk
+755.00	+5.00	+0.67%	1.934B	1.273B	30.719T	42.24	
+83.00
+760.00
+ID	9.358T	
+
+4	
+P
+PNLF.JK
+PT Panin Financial Tbk
+328.00	+50.00	+18.12%	1.843B	118.551M	10.503T	5.40	
+222.00
+458.00
+ID	8.902T	
+
+5	
+B
+BKSL.JK
+PT Sentul City Tbk
+149.00	0.00	0.00%	1.679B	1.135B	24.989T	404.50	
+53.00
+193.00
+ID	24.989T	
+
+6	
+M
+MINA.JK
+PT Sanurhasta Mitra Tbk
+515.00	+59.00	+12.94%	1.396B	578.464M	5.02T	--	
+53.00
+500.00
+ID	4.489T	
+
+7	
+B
+BRMS.JK
+PT Bumi Resources Minerals Tbk
+1,270.00	+90.00	+7.63%	882.532M	703.053M	180.066T	214.46	
+274.00
+1,335.00
+ID	10.004B	
+
+8	
+K
+KLAS.JK
+PT Pelayaran Kurnia Lautan Semesta Tbk
+119.00	-21.00	-15.00%	797.376M	14.474M	433.686B	11.20	
+101.00
+187.00
+ID	510.218B	
+
+9	
+I
+INET.JK
+PT Sinergi Inti Andalan Prima Tbk
+590.00	-180.00	-23.38%	740.063M	534.232M	5.65T	363.42	
+59.00
+935.00
+ID	6.849T	
+
+10	
+A
+ATLA.JK
+Atlantis Subsea Indonesia Tbk.
+69.00	+7.00	+11.29%	613.128M	169.577M	427.769B	148.79	
+50.00
+99.00
+ID	384.374B	
+
+11	
+B
+BBKP.JK
+PT Bank KB Indonesia Tbk
+81.00	+3.00	+3.85%	612.786M	261.254M	15.219T	--	
+50.00
+99.00
+ID	14.655T	
+
+12	
+P
+PADI.JK
+PT Minna Padi Investama Sekuritas Tbk
+150.00	+14.00	+10.29%	568.732M	247.205M	1.662T	38.49	
+9.00
+185.00
+ID	1.538T	
+
+13	
+M
+MEJA.JK
+Harta Djaya Karya Tbk.
+147.00	+13.00	+9.70%	536.744M	37.804M	282.753B	243.86	
+32.00
+446.00
+ID	256.945B	
+
+14	
+T
+TMAS.JK
+PT Temas Tbk.
+186.00	+22.00	+13.50%	482.278M	19.081M	10.578T	14.52	
+115.00
+168.00
+ID	9.326T	
+
+15	
+A
+AHAP.JK
+PT Asuransi Harta Aman Pratama Tbk
+166.00	+43.00	+34.96%	481.577M	79.864M	813.4B	--	
+53.00
+132.00
+ID	602.7B	
+
+16	
+O
+OASA.JK
+PT Maharaksa Biru Energi Tbk
+308.00	+50.00	+19.38%	471.571M	158.479M	1.955T	--	
+98.00
+356.00
+ID	1.638T	
+
+17	
+B
+BABP.JK
+PT Bank MNC Internasional Tbk
+65.00	+7.00	+12.07%	416.563M	23.272M	2.89T	32.85	
+50.00
+69.00
+ID	2.579T	
+
+18	
+W
+WOWS.JK
+PT Ginting Jaya Energi Tbk
+100.00	+7.00	+7.61%	380.72M	101.64M	247.572B	28.21	
+46.00
+163.00
+ID	230.242B	
+
+19	
+L
+LUCK.JK
+PT Sentral Mitra Informatika Tbk
+142.00	+2.00	+1.43%	356.911M	29.85M	101.636B	--	
+52.00
+168.00
+ID	100.205B	
+
+20	
+P
+PADA.JK
+PT Personel Alih Daya Tbk
+376.00	+74.00	+24.50%	339.055M	55.731M	1.184T	--	
+9.00
+340.00
+ID	951.3B	
+
+21	
+E
+ELTY.JK
+PT Bakrieland Development Tbk
+53.00	+4.00	+8.16%	322.845M	158.49M	2.307T	398.91	
+9.00
+50.00
+ID	2.133T	
+
+22	
+I
+INPC.JK
+PT Bank Artha Graha Internasional Tbk
+182.00	+29.00	+18.95%	287.021M	11.341M	3.681T	38.15	
+119.00
+332.00
+ID	3.094T	
+
+23	
+Y
+YOII.JK
+Asuransi Digital Bersama Tbk.
+122.00	+21.00	+20.39%	276.866M	4.361M	428.086B	10.33	
+78.00
+149.00
+ID	345.893B	
+
+24	
+B
+BCAP.JK
+PT MNC Kapital Indonesia Tbk
+66.00	+8.00	+13.79%	255.835M	25.721M	2.77T	18.55	
+50.00
+84.00
+ID	2.472T	
+
+25	
+T
+TRUE.JK
+PT Triniti Dinamik Tbk
+326.00	+64.00	+24.43%	253.156M	68.714M	2.468T	--	
+12.00
+262.00
+ID	1.984T	
+
+26	
+F
+FIRE.JK
+PT Alfa Energi Investama Tbk
+234.00	+60.00	+34.48%	245.259M	71.487M	345.235B	--	
+65.00
+189.00
+ID	256.713B	
+
+27	
+R
+REAL.JK
+PT Repower Asia Indonesia Tbk
+73.00	+4.00	+5.80%	240.401M	332.742M	484.254B	18.87	
+8.00
+116.00
+ID	457.719B	
+
+28	
+W
+WIRG.JK
+PT WIR ASIA Tbk
+99.00	+1.00	+1.02%	233.731M	318.557M	1.182T	13.04	
+70.00
+242.00
+ID	1.17T	
+
+29	
+M
+MPXL.JK
+PT MPX Logistics International Tbk
+250.00	-44.00	-14.97%	211.371M	8.348M	500.004B	--	
+87.00
+294.00
+ID	588.004B	
+
+30	
+C
+COAL.JK
+PT Black Diamond Resources Tbk
+88.00	-1.00	-1.11%	211.126M	294.546M	556.25B	17.38	
+31.00
+148.00
+ID	556.25B	
+
+31	
+B
+BBYB.JK
+PT Bank Neo Commerce Tbk
+505.00	+25.00	+5.21%	206.97M	209.487M	6.742T	13.57	
+148.00
+615.00
+ID	6.408T	
+
+32	
+B
+BBRI.JK
+PT Bank Rakyat Indonesia (Persero) Tbk
+3,620.00	-20.00	-0.55%	196.767M	229.2M	550.159T	9.81	
+3,360.00
+4,450.00
+ID	548.143T	
+
+33	
+P
+PNBS.JK
+PT Bank Panin Dubai Syariah Tbk
+60.00	+6.00	+11.11%	192.567M	29.054M	2.329T	54.55	
+50.00
+64.00
+ID	2.096T	
+
+34	
+C
+CNMA.JK
+PT Nusantara Sejahtera Raya Tbk
+126.00	+5.00	+4.13%	186.405M	37.825M	10.501T	15.60	
+105.00
+188.00
+ID	9.882T	
+
+35	
+B
+BUVA.JK
+PT Bukit Uluwatu Villa Tbk
+1,515.00	+20.00	+1.34%	181.49M	157.716M	37.172T	299.49	
+57.00
+1,850.00
+ID	36.802T	
+
+36	
+L
+LPKR.JK
+PT Lippo Karawaci Tbk
+90.00	+5.00	+5.81%	181.146M	99.191M	6.379T	15.22	
+56.00
+135.00
+ID	6.025T	
+
+37	
+N
+NETV.JK
+PT MDTV Media Technologies Tbk
+200.00	+24.00	+13.71%	178.827M	31.003M	8.272T	--	
+100.00
+250.00
+ID	7.279T	
+
+38	
+A
+ANTM.JK
+PT Aneka Tambang Tbk
+3,400.00	+190.00	+5.92%	178.356M	134.131M	81.705T	10.40	
+1,355.00
+3,930.00
+ID	77.143T	
+
+39	
+M
+MTFN.JK
+PT Capitalinc Investment Tbk
+22.00	+2.00	+10.00%	167.977M	97.22M	700.526B	--	
+3.00
+28.00
+ID	636.842B	
+
+40	
+C
+COCO.JK
+PT Wahana Interfood Nusantara Tbk
+388.00	+14.00	+3.76%	163.16M	159.232M	1.381T	--	
+62.00
+805.00
+ID	1.331T	
+
+41	
+T
+TRON.JK
+PT Teknologi Karya Digital Nusa Tbk
+314.00	+58.00	+22.66%	162.265M	67.634M	926.3B	--	
+70.00
+296.00
+ID	755.2B	
+
+42	
+B
+BTEK.JK
+PT Bumi Teknokultura Unggul Tbk
+19.00	+1.00	+5.56%	153.913M	140.199M	879.272B	--	
+3.00
+42.00
+ID	832.995B	
+
+43	
+W
+WIFI.JK
+PT Solusi Sinergi Digital Tbk
+3,520.00	+190.00	+5.71%	141.211M	143.685M	18.686T	23.58	
+362.00
+4,420.00
+ID	17.677T	
+
+44	
+D
+DKHH.JK
+Cipta Sarana Medika Tbk.
+93.00	+13.00	+16.46%	140.026M	21.996M	237.15B	12.54	
+54.00
+240.00
+ID	161.6B	
+
+45	
+B
+BUKA.JK
+PT Bukalapak.com Tbk.
+159.00	+3.00	+1.91%	139.308M	209.91M	16.401T	7.80	
+111.00
+198.00
+ID	14.743T	
+
+46	
+C
+CGAS.JK
+Citra Nusantara Gemilang Tbk.
+230.00	+48.00	+26.37%	133.509M	14.386M	407.445B	36.40	
+74.00
+216.00
+ID	322.418B	
+
+47	
+K
+KPIG.JK
+PT MNC Tourism Indonesia Tbk
+167.00	+10.00	+6.37%	129.749M	98.48M	16.59T	21.34	
+80.00
+244.00
+ID	15.316T	
+
+48	
+P
+PSKT.JK
+PT Red Planet Indonesia Tbk
+328.00	+8.00	+2.50%	125.754M	57.39M	3.395T	--	
+29.00
+366.00
+ID	3.312T	
+
+49	
+B
+BMTR.JK
+PT Global Mediacom Tbk
+147.00	+6.00	+4.26%	123.794M	40.53M	2.404T	4.39	
+118.00
+198.00
+ID	2.306T	
+
+50	
+I
+IBOS.JK
+PT Indo Boga Sukses Tbk
+85.00	+7.00	+8.97%	121M	22.683M	685.592B	--	
+25.00
+89.00
+ID	629.132B	
+
+51	
+A
+ASLC.JK
+PT Autopedia Sukses Lestari Tbk
+96.00	+5.00	+5.56%	118.805M	127.369M	1.224T	33.27	
+59.00
+136.00
+ID	1.16T	
+
+52	
+S
+SMIL.JK
+PT Sarana Mitra Luas Tbk
+334.00	-22.00	-6.18%	117.873M	147.093M	2.923T	30.50	
+103.00
+790.00
+ID	3.101T	
+
+53	
+N
+NANO.JK
+PT Nanotech Indonesia Global Tbk
+54.00	+4.00	+8.00%	117.695M	23.045M	231.414B	258.20	
+20.00
+88.00
+ID	214.272B	
+
+54	
+K
+KETR.JK
+PT Ketrosden Triasmitra
+1,175.00	+85.00	+7.83%	113.775M	54.333M	3.338T	22.73	
+158.00
+1,595.00
+ID	3.097T	
+
+55	
+B
+BWPT.JK
+PT Eagle High Plantations Tbk
+150.00	+5.00	+3.45%	112.701M	357.029M	4.668T	12.80	
+50.00
+193.00
+ID	4.513T	
+
+56	
+M
+MLPL.JK
+PT Multipolar Tbk
+143.00	+2.00	+1.42%	111.569M	269.952M	2.233T	--	
+84.00
+274.00
+ID	2.201T	
+
+57	
+B
+BVIC.JK
+PT Bank Victoria International Tbk
+139.00	+16.00	+12.90%	110.306M	14.819M	2.535T	12.45	
+70.00
+149.00
+ID	2.265T	
+
+58	
+C
+CDIA.JK
+Chandra Daya Investasi Tbk.
+1,695.00	-20.00	-1.17%	109.712M	303.865M	211.586T	147.13	
+256.00
+2,450.00
+ID	12.801B	
+
+59	
+N
+NICL.JK
+PT PAM Mineral Tbk
+1,465.00	+80.00	+5.78%	108.851M	22.587M	15.581T	26.99	
+234.00
+1,540.00
+ID	14.73T	
+
+60	
+R
+RMKO.JK
+PT Royaltama Mulia Kontraktorindo Tbk
+464.00	0.00	0.00%	104.037M	18.07M	580B	--	
+86.00
+464.00
+ID	580B	
+
+61	
+J
+JGLE.JK
+PT Graha Andrasentra Propertindo Tbk
+49.00	+4.00	+8.89%	99.971M	90.157M	1.107T	--	
+6.00
+46.00
+ID	1.016T	
+
+62	
+P
+PPRE.JK
+PT PP Presisi Tbk
+174.00	+1.00	+0.58%	99.466M	111.169M	1.76T	9.33	
+50.00
+184.00
+ID	1.75T	
+
+63	
+K
+KIJA.JK
+PT Kawasan Industri Jababeka Tbk
+208.00	0.00	0.00%	97.85M	120.837M	4.279T	28.11	
+155.00
+262.00
+ID	4.277T	
+
+64	
+O
+OPMS.JK
+PT Optima Prima Metal Sinergi Tbk
+150.00	+11.00	+7.86%	95.216M	48.56M	120.244B	--	
+50.00
+199.00
+ID	111.426B	
+
+65	
+C
+CHEM.JK
+PT Chemstar Indonesia Tbk
+109.00	+8.00	+7.84%	93.199M	27.766M	185.304B	512.77	
+50.00
+155.00
+ID	171.703B	
+
+66	
+P
+PIPA.JK
+PT. Multi Makmur Lemindo
+258.00	+14.00	+5.69%	92.781M	146.62M	883.933B	210.92	
+14.00
+625.00
+ID	835.968B	
+
+67	
+B
+BNBR.JK
+PT Bakrie & Brothers Tbk
+152.00	+13.00	+9.35%	92.612M	104.41M	26.359T	--	
+25.00
+139.00
+ID	24.105T	
+
+68	
+M
+MSIN.JK
+PT MNC Digital Entertainment Tbk
+436.00	+20.00	+4.81%	92.164M	46.342M	26.455T	55.59	
+404.00
+1,165.00
+ID	25.241T	
+
+69	
+S
+SLIS.JK
+PT Gaya Abadi Sempurna Tbk
+101.00	+4.00	+4.12%	90.227M	76.187M	248.797B	--	
+50.00
+116.00
+ID	238.944B	
+
+70	
+N
+NELY.JK
+PT Pelayaran Nelly Dwi Putri Tbk
+515.00	+51.00	+10.87%	85.972M	2.694M	1.21T	9.75	
+330.00
+490.00
+ID	1.09T	
+
+71	
+B
+BMRI.JK
+PT Bank Mandiri (Persero) Tbk
+5,050.00	-25.00	-0.49%	79.573M	143.554M	471.333T	9.20	
+4,010.00
+6,300.00
+ID	473.667T	
+
+72	
+B
+BSBK.JK
+PT Wulandari Bangun Laksana Tbk
+74.00	+3.00	+4.23%	79.104M	154.97M	1.857T	5.22	
+50.00
+109.00
+ID	1.782T	
+
+73	
+W
+WMUU.JK
+PT Widodo Makmur Unggas Tbk
+65.00	+1.00	+1.56%	78.527M	108.284M	841.176B	--	
+8.00
+84.00
+ID	828.235B	
+
+74	
+E
+EMTK.JK
+PT Elang Mahkota Teknologi Tbk
+1,080.00	-20.00	-1.81%	74.517M	166.255M	66.341T	8.99	
+460.00
+1,700.00
+ID	67.263T	
+
+75	
+E
+ELSA.JK
+PT Elnusa Tbk
+515.00	+5.00	+0.97%	72.525M	32.511M	3.759T	5.40	
+360.00
+575.00
+ID	3.722T	
+
+76	
+P
+PNBN.JK
+PT Bank Pan Indonesia Tbk
+1,230.00	+90.00	+7.89%	71.677M	17.806M	29.601T	9.65	
+990.00
+1,965.00
+ID	27.435T	
+
+77	
+B
+BGTG.JK
+PT Bank Ganesha Tbk
+127.00	+7.00	+5.79%	71.644M	39.782M	3.044T	11.93	
+62.00
+142.00
+ID	2.877T	
+
+78	
+G
+GOLF.JK
+Intra Golflink Resorts Tbk.
+260.00	-4.00	-1.52%	69.634M	15.441M	5.067T	68.20	
+181.00
+342.00
+ID	5.145T	
+
+79	
+V
+VKTR.JK
+PT VKTR Teknologi Mobilitas Tbk
+995.00	+5.00	+0.51%	69.451M	61.783M	43.531T	--	
+60.00
+1,045.00
+ID	43.312T	
+
+80	
+H
+HRTA.JK
+PT Hartadinata Abadi Tbk
+2,260.00	+110.00	+5.12%	69.269M	53.971M	10.408T	13.83	
+312.00
+2,390.00
+ID	9.901T	
+
+81	
+N
+NINE.JK
+PT Techno9 Indonesia Tbk
+206.00	-20.00	-8.85%	68.57M	2.405M	444.342B	--	
+51.00
+358.00
+ID	487.482B	
+
+82	
+B
+BEKS.JK
+PT. Bank Pembangunan Daerah Banten, Tbk
+29.00	0.00	0.00%	67.555M	46.723M	1.504T	31.68	
+21.00
+35.00
+ID	1.452T	
+
+83	
+A
+ASHA.JK
+PT Cilacap Samudera Fishing Industry Tbk
+75.00	0.00	0.00%	65.686M	128.207M	375B	--	
+10.00
+110.00
+ID	375B	
+
+84	
+S
+SCMA.JK
+PT Surya Citra Media Tbk
+338.00	-8.00	-2.30%	63.037M	198.949M	21.452T	32.42	
+144.00
+472.00
+ID	21.96T	
+
+85	
+I
+ISAP.JK
+PT Isra Presisi Indonesia Tbk.
+31.00	+2.00	+6.90%	62.755M	56.76M	124.627B	--	
+9.00
+69.00
+ID	116.583B	
+
+86	
+U
+UNIQ.JK
+PT Ulima Nitra Tbk
+314.00	-54.00	-14.67%	61.104M	35.588M	985.641B	21.33	
+330.00
+650.00
+ID	1.155T	
+
+87	
+N
+NCKL.JK
+PT Trimegah Bangun Persada Tbk
+1,180.00	+15.00	+1.29%	60.045M	67.029M	74.395T	9.20	
+530.00
+1,395.00
+ID	73.381T	
+
+88	
+T
+TLKM.JK
+Perusahaan Perseroan (Persero) PT Telekomunikasi Indonesia Tbk
+3,550.00	+80.00	+2.31%	59.377M	92.067M	351.671T	15.80	
+2,050.00
+3,720.00
+ID	343.74T	
+
+89	
+V
+VIVA.JK
+PT Visi Media Asia Tbk
+55.00	+5.00	+10.00%	59.18M	25.377M	905.535B	0.15	
+6.00
+60.00
+ID	823.214B	
+
+90	
+W
+WSBP.JK
+PT Waskita Beton Precast Tbk
+22.00	-1.00	-4.35%	58.361M	71.587M	1.209T	--	
+11.00
+39.00
+ID	1.267T	
+
+91	
+T
+TRIN.JK
+PT Perintis Triniti Properti Tbk
+1,545.00	+295.00	+23.60%	57.725M	25.94M	7.009T	--	
+68.00
+1,600.00
+ID	5.441T	
+
+92	
+B
+BBCA.JK
+PT Bank Central Asia Tbk
+8,025.00	0.00	0.00%	57.602M	136.949M	992.136T	17.31	
+7,225.00
+9,925.00
+ID	989.055T	
+
+93	
+E
+ELIT.JK
+PT Data Sinergitama Jaya Tbk
+226.00	+10.00	+4.63%	56.334M	30.103M	461.466B	14.70	
+114.00
+310.00
+ID	436.311B	
+
+94	
+L
+LAPD.JK
+PT Leyand International Tbk
+154.00	-1.00	-0.65%	56.252M	30.511M	614.784B	--	
+15.00
+360.00
+ID	614.784B	
+
+95	
+B
+BRPT.JK
+PT Barito Pacific Tbk
+3,170.00	-20.00	-0.63%	54.967M	127.522M	297.043T	29.23	
+585.00
+4,530.00
+ID	17.873B	
+
+96	
+M
+MHKI.JK
+Multi Hanna Kreasindo Tbk.
+230.00	+22.00	+10.58%	54.495M	37.641M	862.5B	19.44	
+85.00
+334.00
+ID	780B	
+
+97	
+S
+SMGA.JK
+Sumber Mineral Global Abadi Tbk
+112.00	+4.00	+3.70%	53.827M	106.908M	980B	17.69	
+50.00
+155.00
+ID	945B	
+
+98	
+T
+TINS.JK
+PT TIMAH Tbk
+3,320.00	+180.00	+5.73%	52.885M	76.598M	24.727T	26.57	
+825.00
+3,740.00
+ID	23.386T	
+
+99	
+I
+IMJS.JK
+PT Indomobil Multi Jasa Tbk
+270.00	-12.00	-4.26%	50.916M	47.84M	2.951T	10.84	
+132.00
+490.96
+ID	2.441T	
+
+100	
+H
+HOKI.JK
+PT Buyung Poetra Sembada Tbk
+75.00	+1.00	+1.37%	49.734M	68.434M	716.154B	--	
+68.00
+128.00
+ID	716.154B	
+
+	
+U
+UVCR.JK
+PT Trimegah Karya Pratama Tbk
+165.00	+10.00	+6.45%	49.551M	69.268M	328.024B	--	
+50.00
+162.00
+ID	310.022B	
+
+102	
+P
+PWON.JK
+PT Pakuwon Jati Tbk
+344.00	+4.00	+1.18%	49.358M	51.633M	16.471T	7.66	
+304.00
+430.00
+ID	16.374T	
+
+103	
+I
+IKAI.JK
+PT Intikeramik Alamasri Industri Tbk
+22.00	+1.00	+4.76%	49.21M	73.993M	292.728B	--	
+7.00
+42.00
+ID	279.422B	
+
+104	
+C
+COIN.JK
+Indokripto Koin Semesta Tbk.
+3,980.00	+40.00	+1.02%	49.03M	86.234M	58.541T	251.90	
+135.00
+4,800.00
+ID	57.941T	
+
+105	
+K
+KRYA.JK
+PT Bangun Karya Perkasa Jaya Tbk
+150.00	-5.00	-3.25%	48.018M	33.958M	249.592B	--	
+50.00
+324.00
+ID	257.911B	
+
+106	
+P
+PTPP.JK
+PT PP (Persero) Tbk
+402.00	-12.00	-2.90%	48.017M	23.553M	2.487T	16.64	
+216.00
+500.00
+ID	2.561T	
+
+107	
+A
+AYAM.JK
+Janu Putra Sejahtera Tbk.
+442.00	+8.00	+1.84%	48.002M	107.837M	1.768T	--	
+132.00
+470.00
+ID	1.736T	
+
+108	
+E
+ERAA.JK
+PT Erajaya Swasembada Tbk
+414.00	+2.00	+0.49%	47.118M	53.929M	6.566T	6.33	
+312.00
+590.00
+ID	6.503T	
+
+109	
+T
+TOSK.JK
+Topindo Solusi Komunika Tbk.
+63.00	+1.00	+1.61%	46.85M	110.992M	275.642B	41.20	
+50.00
+136.00
+ID	271.267B	
+
+110	
+G
+GPRA.JK
+PT Perdana Gapuraprima Tbk
+137.00	-7.00	-4.86%	46.731M	35.795M	585.902B	5.36	
+74.00
+183.00
+ID	615.838B	
+
+111	
+E
+EMDE.JK
+PT Megapolitan Developments Tbk
+102.00	-8.00	-7.27%	45.989M	12.203M	345.05B	5.14	
+81.00
+136.00
+ID	365.27B	
+
+112	
+M
+MNCN.JK
+PT. Media Nusantara Citra Tbk
+280.00	+12.00	+4.48%	45.749M	26.893M	3.677T	3.90	
+220.00
+316.00
+ID	3.545T	
+
+113	
+R
+RUIS.JK
+PT Radiant Utama Interinsco Tbk
+308.00	+54.00	+21.43%	45.605M	4.582M	237.16B	12.87	
+132.00
+298.00
+ID	195.58B	
+
+114	
+C
+CUAN.JK
+PT Petrindo Jaya Kreasi Tbk
+2,250.00	-40.00	-1.75%	45.589M	189.28M	252.943T	107.65	
+473.00
+2,890.00
+ID	15.393B	
+
+115	
+B
+BACA.JK
+PT Bank Capital Indonesia Tbk
+222.00	-4.00	-1.75%	45.309M	17.037M	4.43T	49.29	
+127.00
+252.00
+ID	4.509T	
+
+116	
+D
+DFAM.JK
+PT Dafam Property Indonesia Tbk
+110.00	-5.00	-4.35%	44.252M	46.835M	208.984B	--	
+50.00
+132.00
+ID	218.483B	
+
+117	
+M
+MDLN.JK
+PT Modernland Realty Tbk
+64.00	+2.00	+3.23%	44.072M	26.287M	764.628B	--	
+50.00
+84.00
+ID	740.734B	
+
+118	
+H
+HATM.JK
+PT Habco Trans Maritima Tbk
+426.00	+6.00	+1.43%	43.807M	30.641M	3.698T	25.21	
+222.00
+432.00
+ID	3.646T	
+
+119	
+D
+DILD.JK
+PT Intiland Development Tbk
+139.00	-2.00	-1.42%	43.305M	15.866M	1.441T	--	
+110.00
+171.00
+ID	1.462T	
+
+120	
+B
+BCIP.JK
+PT Bumi Citra Permai Tbk
+80.00	-3.00	-3.57%	43.235M	40.618M	114.393B	6.99	
+50.00
+131.00
+ID	118.683B	
+
+121	
+D
+DMAS.JK
+PT Puradelta Lestari Tbk
+130.00	+1.00	+0.78%	41.833M	30.787M	6.266T	8.45	
+127.00
+185.00
+ID	6.218T	
+
+122	
+B
+BBNI.JK
+PT Bank Negara Indonesia (Persero) Tbk
+4,210.00	-50.00	-1.17%	41.469M	50.679M	156.851T	7.84	
+3,610.00
+4,880.00
+ID	158.714T	
+
+123	
+N
+NTBK.JK
+PT Nusatama Berkah Tbk
+125.00	-1.00	-0.79%	39.966M	113.285M	337.508B	414.14	
+50.00
+208.00
+ID	340.208B	
+
+124	
+T
+TAXI.JK
+PT Express Transindo Utama Tbk
+21.00	+1.00	+5.00%	39.592M	82.405M	214.697B	--	
+6.00
+33.00
+ID	204.473B	
+
+125	
+K
+KLBF.JK
+PT Kalbe Farma Tbk.
+1,215.00	+10.00	+0.83%	39.453M	123.176M	55.153T	15.72	
+985.00
+1,600.00
+ID	54.606T	
+
+126	
+C
+CNKO.JK
+PT Exploitasi Energi Indonesia Tbk
+63.00	0.00	0.00%	39.211M	44.473M	564.251B	3.10	
+28.00
+127.00
+ID	564.251B	
+
+127	
+P
+PTMP.JK
+PT Mitra Pack Tbk
+84.00	0.00	0.00%	37.827M	20.758M	266.213B	21.51	
+51.00
+126.00
+ID	266.213B	
+
+128	
+M
+MAHA.JK
+PT Mandiri Herindo Adiperkasa Tbk
+181.00	+1.00	+0.56%	37.813M	52.462M	2.967T	18.89	
+130.00
+216.00
+ID	2.951T	
+
+129	
+D
+DOOH.JK
+PT Era Media Sejahtera Tbk
+318.00	+26.00	+8.90%	37.732M	229.337M	2.461T	658.35	
+52.00
+360.00
+ID	2.26T	
+
+130	
+A
+AGRO.JK
+PT Bank Raya Indonesia Tbk
+242.00	+10.00	+4.35%	37.191M	30M	5.987T	97.31	
+155.00
+272.00
+ID	5.725T	
+
+131	
+D
+DEWI.JK
+PT Dewi Shri Farmindo Tbk.
+151.00	+2.00	+1.33%	36.418M	89.252M	302B	44.70	
+83.00
+222.00
+ID	298B	
+
+132	
+C
+CMNT.JK
+PT Cemindo Gemilang Tbk
+840.00	-10.00	-1.19%	36.117M	23.612M	14.385T	--	
+725.00
+955.00
+ID	14.557T	
+
+133	
+F
+FUTR.JK
+PT Lini Imaji Kreasi Ekosistem Tbk
+645.00	-10.00	-1.53%	35.875M	126.754M	4.28T	539.37	
+50.00
+865.00
+ID	4.346T	
+
+134	
+M
+MSKY.JK
+PT MNC Sky Vision Tbk
+83.00	+3.00	+3.75%	34.752M	13.992M	827.664B	--	
+50.00
+113.00
+ID	797.748B	
+
+135	
+M
+MCOR.JK
+PT Bank China Construction Bank Indonesia Tbk
+78.00	+3.00	+4.00%	34.229M	14.008M	2.958T	9.32	
+58.00
+86.00
+ID	2.844T	
+
+136	
+I
+INDO.JK
+PT Royalindo Investa Wijaya Tbk
+366.00	+24.00	+7.02%	34.001M	18.149M	1.64T	63.60	
+105.00
+380.00
+ID	1.532T	
+
+137	
+B
+BRRC.JK
+Raja Roti Cemerlang Tbk.
+118.00	+7.00	+6.31%	33.79M	77.222M	114.637B	64.11	
+50.00
+326.00
+ID	107.837B	
+
+138	
+G
+GZCO.JK
+PT Gozco Plantations Tbk
+280.00	+8.00	+2.94%	33.39M	230.315M	1.68T	17.20	
+76.00
+450.00
+ID	1.572T	
+
+139	
+S
+STRK.JK
+PT Lovina Beach Brewery Tbk
+196.00	-6.00	-2.99%	32.802M	31.411M	2.101T	--	
+50.00
+276.00
+ID	2.166T	
+
+140	
+C
+CBDK.JK
+Bangun Kosambi Sukses Tbk.
+7,900.00	-600.00	-7.06%	32.641M	17.468M	44.785T	30.39	
+4,300.00
+11,450.00
+ID	48.186T	
+
+141	
+H
+HAJJ.JK
+PT Arsy Buana Travelindo Tbk
+132.00	+3.00	+2.33%	32.595M	14.125M	325.815B	15.59	
+106.00
+288.00
+ID	318.408B	
+
+142	
+M
+MEDS.JK
+PT Hetzer Medical Indonesia Tbk
+74.00	+2.00	+2.74%	31.868M	60.389M	115.625B	--	
+50.00
+113.00
+ID	112.5B	
+
+143	
+K
+KREN.JK
+PT Quantum Clovera Investama Tbk
+22.00	+2.00	+10.00%	31.59M	37.983M	400.493B	--	
+7.00
+33.00
+ID	364.085B	
+
+144	
+A
+ASLI.JK
+Asri Karya Lestari Tbk.
+510.00	-25.00	-4.67%	31.269M	53.577M	3.188T	--	
+50.00
+590.00
+ID	3.344T	
+
+145	
+I
+IMPC.JK
+PT Impack Pratama Industri Tbk
+3,930.00	0.00	0.00%	30.605M	53.029M	215.785T	354.44	
+282.00
+4,090.00
+ID	215.633T	
+
+146	
+S
+SGER.JK
+PT Sumber Global Energy Tbk
+414.00	-4.00	-0.96%	30.528M	187.837M	6.453T	23.31	
+248.00
+575.00
+ID	6.515T	
+
+147	
+B
+BSML.JK
+PT Bintang Samudera Mandiri Lines Tbk
+258.00	0.00	0.00%	29.248M	32.539M	477.358B	130.14	
+64.00
+268.00
+ID	477.358B	
+
+148	
+P
+PYFA.JK
+PT Pyridam Farma Tbk
+500.00	-15.00	-2.91%	29.118M	52.534M	5.618T	--	
+136.00
+700.00
+ID	5.787T	
+
+149	
+Z
+ZATA.JK
+PT Bersama Zatta Jaya Tbk
+62.00	+1.00	+1.64%	28.735M	156.05M	526.752B	288.96	
+6.00
+110.00
+ID	518.256B	
+
+150	
+M
+MPPA.JK
+PT Matahari Putra Prima Tbk
+62.00	+1.00	+1.67%	28.649M	86.492M	803.932B	--	
+50.00
+93.00
+ID	790.965B	
+
+151	
+C
+CSMI.JK
+PT Cipta Selera Murni Tbk
+212.00	0.00	0.00%	28.551M	28.798M	173.005B	--	
+204.00
+3,500.00
+ID	173.005B	
+
+152	
+N
+NAIK.JK
+Adiwarna Anugerah Abadi Tbk.
+124.00	+5.00	+4.20%	28.332M	18.682M	412.586B	10.22	
+109.00
+740.00
+ID	395.947B	
+
+153	
+A
+AVIA.JK
+PT Avia Avian Tbk
+505.00	-15.00	-2.88%	27.963M	26.72M	30.388T	18.59	
+336.00
+530.00
+ID	31T	
+
+154	
+V
+VINS.JK
+PT Victoria Insurance Tbk
+232.00	+59.00	+34.10%	27.748M	4.494M	360.396B	22.08	
+94.00
+262.00
+ID	268.744B	
+
+155	
+E
+ERAL.JK
+PT Sinar Eka Selaras Tbk
+334.00	+12.00	+3.73%	27.573M	16.54M	1.733T	9.88	
+224.00
+408.00
+ID	1.67T	
+
+156	
+S
+SPRE.JK
+Soraya Berjaya Indonesia Tbk.
+206.00	+9.00	+4.57%	27.354M	9.494M	164.8B	60.86	
+68.00
+240.00
+ID	157.6B	
+
+157	
+A
+ACES.JK
+PT Aspirasi Hidup Indonesia Tbk
+414.00	+4.00	+0.98%	27.241M	46.779M	7.1T	8.83	
+402.00
+815.00
+ID	7.019T	
+
+158	
+W
+WEGE.JK
+PT Wijaya Karya Bangunan Gedung Tbk
+70.00	0.00	0.00%	27.13M	56.458M	670.04B	--	
+50.00
+96.00
+ID	670.04B	
+
+159	
+K
+KUAS.JK
+PT Ace Oldfields Tbk
+79.00	-1.00	-1.25%	26.842M	38.487M	102.132B	8.97	
+50.00
+96.00
+ID	103.425B	
+
+160	
+I
+IRSX.JK
+PT Folago Global Nusantara Tbk
+680.00	0.00	0.00%	26.602M	37.752M	4.213T	200.25	
+20.00
+710.00
+ID	4.213T	
+
+161	
+B
+BHIT.JK
+PT MNC Asia Holding Tbk
+40.00	+1.00	+2.56%	26.488M	14.624M	3.342T	18.59	
+22.00
+41.00
+ID	3.258T	
+
+162	
+A
+AGRS.JK
+PT Bank IBK Indonesia Tbk
+83.00	+3.00	+3.75%	26.148M	28.502M	3.973T	19.17	
+54.00
+96.00
+ID	3.829T	
+
+163	
+P
+PAMG.JK
+PT Bima Sakti Pertiwi Tbk
+72.00	+1.00	+1.41%	25.895M	35.12M	225B	45.58	
+51.00
+117.00
+ID	221.875B	
+
+164	
+N
+NRCA.JK
+PT Nusa Raya Cipta Tbk
+1,575.00	-95.00	-5.71%	25.887M	39.131M	3.832T	26.53	
+278.00
+2,160.00
+ID	4.169T	
+
+165	
+L
+LAJU.JK
+PT Jasa Berdikari Logistics Tbk
+78.00	+1.00	+1.30%	25.74M	40.049M	167.696B	--	
+50.00
+94.00
+ID	165.546B	
+
+166	
+H
+HOPE.JK
+PT Harapan Duta Pertiwi Tbk
+154.00	+12.00	+8.45%	24.929M	56.357M	328.075B	--	
+18.00
+282.00
+ID	302.511B	
+
+167	
+K
+KBAG.JK
+PT Karya Bersama Anugerah Tbk
+50.00	+1.00	+2.04%	24.901M	6.563M	357.5B	--	
+18.00
+56.00
+ID	350.35B	
+
+168	
+M
+MITI.JK
+PT Mitra Investindo Tbk
+440.00	-4.00	-0.90%	24.372M	11.117M	1.65T	179.82	
+132.00
+525.00
+ID	1.572T	
+
+169	
+K
+KOKA.JK
+PT Koka Indonesia Tbk
+262.00	+2.00	+0.77%	24.337M	35.643M	749.669B	--	
+63.00
+490.00
+ID	743.947B	
+
+170	
+H
+HAIS.JK
+PT Hasnur Internasional Shipping Tbk
+270.00	+2.00	+0.75%	24.333M	10.309M	709.087B	7.03	
+184.00
+282.00
+ID	703.835B	
+
+171	
+M
+MTEL.JK
+PT Dayamitra Telekomunikasi Tbk.
+640.00	-20.00	-3.03%	24.062M	17.822M	53.478T	25.13	
+488.00
+705.00
+ID	53.81T	
+
+172	
+K
+KOCI.JK
+PT Kokoh Exa Nusantara Tbk
+89.00	+3.00	+3.49%	23.955M	19.524M	392.989B	22.63	
+50.00
+115.00
+ID	379.741B	
+
+173	
+T
+TUGU.JK
+PT Asuransi Tugu Pratama Indonesia Tbk
+1,275.00	+90.00	+7.63%	23.907M	4.8M	4.533T	9.26	
+860.00
+1,210.00
+ID	4.213T	
+
+174	
+D
+DADA.JK
+PT Diamond Citra Propertindo Tbk
+50.00	0.00	0.00%	23.782M	234.145M	371.577B	207.65	
+6.00
+240.00
+ID	371.577B	
+
+175	
+A
+APLN.JK
+PT Agung Podomoro Land Tbk
+108.00	+1.00	+0.93%	23.689M	16.55M	2.452T	3.93	
+75.00
+118.00
+ID	2.429T	
+
+176	
+J
+JPFA.JK
+PT Japfa Comfeed Indonesia Tbk
+2,900.00	0.00	0.00%	23.265M	32.309M	33.72T	10.11	
+1,415.00
+2,900.00
+ID	33.72T	
+
+177	
+C
+CENT.JK
+PT Centratama Telekomunikasi Indonesia Tbk
+157.00	+1.00	+0.65%	23.218M	73.263M	4.896T	--	
+36.00
+200.00
+ID	4.865T	
+
+178	
+S
+SIDO.JK
+PT Industri Jamu dan Farmasi Sido Muncul Tbk
+545.00	+5.00	+0.93%	23.199M	18.665M	16.231T	13.29	
+480.00
+630.00
+ID	15.941T	
+
+179	
+M
+MARK.JK
+PT Mark Dynamics Indonesia Tbk
+800.00	-20.00	-2.44%	23.106M	18.6M	3.04T	11.56	
+585.00
+1,090.00
+ID	3.116T	
+
+180	
+A
+AMMN.JK
+PT Amman Mineral Internasional Tbk
+6,950.00	+150.00	+2.21%	22.974M	31.209M	504.002T	--	
+4,500.00
+9,225.00
+ID	29.443B	
+
+181	
+H
+HMSP.JK
+PT Hanjaya Mandala Sampoerna Tbk
+745.00	+5.00	+0.68%	22.706M	95.729M	86.657T	14.51	
+496.00
+940.00
+ID	86.075T	
+
+182	
+C
+CSIS.JK
+PT Cahayasakti Investindo Sukses Tbk
+342.00	+22.00	+6.88%	22.687M	32.037M	472.372B	50.12	
+55.00
+619.81
+ID	418.24B	
+
+183	
+A
+AKRA.JK
+PT AKR Corporindo Tbk
+1,295.00	+15.00	+1.17%	22.631M	24.282M	25.641T	10.51	
+890.00
+1,430.00
+ID	25.344T	
+
+184	
+R
+RMKE.JK
+PT RMK Energy Tbk
+5,825.00	-125.00	-2.10%	22.612M	14.571M	25.484T	114.45	
+486.00
+6,325.00
+ID	26.031T	
+
+185	
+I
+IOTF.JK
+PT Sumber Sinergi Makmur Tbk
+85.00	+1.00	+1.19%	22.561M	44.538M	449.675B	867.91	
+56.00
+264.00
+ID	444.385B	
+
+186	
+B
+BBTN.JK
+PT Bank Tabungan Negara (Persero) Tbk
+1,160.00	0.00	0.00%	22.446M	35.83M	16.28T	5.04	
+755.00
+1,450.00
+ID	16.28T	
+
+187	
+B
+BKSW.JK
+PT Bank QNB Indonesia Tbk
+66.00	+2.00	+3.08%	22.342M	16.233M	2.32T	971.57	
+50.00
+81.00
+ID	2.25T	
+
+188	
+A
+ADCP.JK
+PT Adhi Commuter Properti Tbk
+58.00	+2.00	+3.64%	22.025M	34.874M	1.289T	161.68	
+50.00
+75.00
+ID	1.244T	
+
+189	
+P
+PBSA.JK
+PT Paramita Bangun Sarana Tbk
+1,615.00	+65.00	+4.19%	21.969M	5.227M	4.83T	20.02	
+310.00
+2,160.00
+ID	4.65T	
+
+190	
+A
+ASRI.JK
+PT Alam Sutera Realty Tbk
+164.00	+1.00	+0.61%	21.95M	30.726M	3.223T	63.33	
+96.00
+191.00
+ID	3.203T	
+
+191	
+T
+TOWR.JK
+PT Sarana Menara Nusantara Tbk.
+580.00	-5.00	-0.86%	21.48M	29.023M	34.277T	8.75	
+442.00
+725.00
+ID	34.054T	
+
+192	
+N
+NSSS.JK
+PT Nusantara Sawit Sejahtera Tbk
+950.00	+25.00	+2.70%	21.424M	10.033M	22.611T	30.43	
+230.00
+940.00
+ID	22.016T	
+
+193	
+D
+DKFT.JK
+PT Central Omega Resources Tbk
+790.00	+15.00	+1.94%	21.325M	29.171M	4.356T	8.23	
+189.00
+900.00
+ID	4.273T	
+
+194	
+K
+KAQI.JK
+Jantra Grupo Indonesia Tbk.
+70.00	0.00	0.00%	21.09M	39.54M	145.306B	15.15	
+50.00
+157.00
+ID	145.306B	
+
+195	
+F
+FILM.JK
+PT.MD Entertainment Tbk
+14,500.00	0.00	0.00%	21.063M	9.358M	157.87T	--	
+1,380.00
+14,750.00
+ID	143.518T	
+
+196	
+A
+ASII.JK
+PT Astra International Tbk
+6,850.00	+50.00	+0.74%	20.964M	40.337M	277.312T	8.43	
+4,370.00
+6,900.00
+ID	275.288T	
+
+197	
+B
+BRIS.JK
+PT Bank Syariah Indonesia Tbk
+2,190.00	+30.00	+1.39%	20.889M	16.278M	100.562T	13.34	
+2,000.00
+3,130.00
+ID	99.639T	
+
+198	
+M
+MDIA.JK
+PT Intermedia Capital Tbk
+104.00	+9.00	+9.47%	20.844M	11.636M	4.078T	--	
+10.00
+95.00
+ID	3.725T	
+
+199	
+L
+LOPI.JK
+PT Logisticsplus International Tbk
+196.00	+17.00	+9.50%	20.637M	15.273M	215.602B	48.84	
+28.00
+199.00
+ID	196.902B	
+
+200	
+B
+BMBL.JK
+PT Lavender Bina Cendikia Tbk
+54.00	-3.00	-5.26%	20.624M	20.69M	55.624B	--	
+13.00
+90.00
+ID	58.715B	
+
+	
+E
+ESIP.JK
+PT Sinergi Inti Plastindo Tbk
+84.00	-1.00	-1.18%	9.141M	34.509M	93.236B	68.82	
+21.00
+150.00
+ID	94.346B	
+
+302	
+B
+BAIK.JK
+Bersama Mencapai Puncak Tbk.
+137.00	+5.00	+3.82%	9.027M	11.334M	154.126B	46.11	
+59.00
+193.00
+ID	148.5B	
+
+303	
+B
+BEER.JK
+PT Jobubu Jarum Minahasa Tbk
+216.00	-18.00	-7.69%	8.817M	11.347M	864B	132.55	
+62.00
+290.00
+ID	936B	
+
+304	
+G
+GJTL.JK
+PT. Gajah Tunggal Tbk
+1,070.00	+10.00	+0.94%	8.781M	6.325M	3.728T	3.74	
+880.00
+1,225.00
+ID	3.693T	
+
+305	
+I
+INDX.JK
+PT Tanah Laut Tbk
+178.00	+7.00	+4.12%	8.779M	23.365M	77.949B	--	
+67.00
+284.00
+ID	74.883B	
+
+306	
+P
+PRIM.JK
+PT Royal Prima Tbk
+86.00	0.00	0.00%	8.776M	16.335M	290.536B	--	
+50.00
+116.00
+ID	290.536B	
+
+307	
+T
+TCPI.JK
+PT Transcoal Pacific Tbk
+8,750.00	+75.00	+0.86%	8.748M	7.343M	43.75T	228.29	
+4,510.00
+9,450.00
+ID	43.375T	
+
+308	
+M
+MIRA.JK
+PT Mitra International Resources Tbk
+33.00	-1.00	-2.94%	8.728M	22.115M	130.728B	--	
+8.00
+81.00
+ID	134.689B	
+
+309	
+F
+FOLK.JK
+PT Multi Garam Utama Tbk
+484.00	+44.00	+10.00%	8.685M	14.896M	1.911T	--	
+50.00
+530.00
+ID	1.737T	
+
+310	
+A
+AEGS.JK
+PT. Anugerah Spareparts Sejahtera Tbk
+62.00	+1.00	+1.64%	8.683M	35.954M	62.377B	102.69	
+24.00
+101.00
+ID	61.371B	
+
+311	
+P
+PTBA.JK
+PT Bukit Asam Tbk
+2,350.00	+30.00	+1.30%	8.236M	10.544M	27.059T	8.18	
+2,170.00
+3,070.00
+ID	26.713T	
+
+312	
+B
+BAPI.JK
+PT Bhakti Agung Propertindo Tbk
+29.00	0.00	0.00%	8.204M	12.81M	162.167B	--	
+7.00
+44.00
+ID	162.167B	
+
+313	
+P
+PSDN.JK
+PT Prasidha Aneka Niaga Tbk
+134.00	-1.00	-0.74%	8.178M	26.022M	192.96B	--	
+59.00
+202.00
+ID	194.4B	
+
+314	
+B
+BABY.JK
+PT Multitrend Indo Tbk
+332.00	0.00	0.00%	7.972M	25.23M	868.587B	--	
+228.00
+595.00
+ID	868.587B	
+
+315	
+T
+TBIG.JK
+PT Tower Bersama Infrastructure Tbk
+2,560.00	-40.00	-1.54%	7.954M	2.9M	57.105T	44.57	
+1,680.00
+2,950.00
+ID	57.997T	
+
+316	
+P
+PNIN.JK
+PT Paninvest Tbk
+885.00	+55.00	+6.63%	7.918M	1.035M	3.6T	3.36	
+755.00
+1,155.00
+ID	3.377T	
+
+317	
+P
+PANI.JK
+PT Pantai Indah Kapuk Dua Tbk
+12,250.00	-375.00	-2.97%	7.847M	11.021M	221.934T	227.13	
+7,300.00
+18,325.00
+ID	213.419T	
+
+318	
+H
+HGII.JK
+Hero Global Investment Tbk.
+156.00	+2.00	+1.30%	7.78M	11.354M	1.014T	34.73	
+134.00
+270.00
+ID	1.001T	
+
+319	
+N
+NOBU.JK
+PT Bank Nationalnobu Tbk
+520.00	+5.00	+0.97%	7.706M	4.85M	3.889T	8.33	
+486.00
+920.00
+ID	3.851T	
+
+320	
+M
+MAYA.JK
+PT Bank Mayapada Internasional Tbk
+242.00	+10.00	+4.31%	7.662M	8.472M	6.333T	155.95	
+166.00
+334.00
+ID	2.745T	
+
+321	
+A
+ATAP.JK
+PT Trimitra Prawara Goldland Tbk
+655.00	-20.00	-2.94%	7.594M	3.754M	818.75B	--	
+24.00
+750.00
+ID	843.75B	
+
+322	
+C
+CLEO.JK
+PT Sariguna Primatirta Tbk
+464.00	-2.00	-0.43%	7.564M	7.438M	11.136T	25.44	
+457.50
+915.00
+ID	11.184T	
+
+323	
+I
+INDF.JK
+PT Indofood Sukses Makmur Tbk
+6,775.00	+100.00	+1.50%	7.538M	7.964M	59.487T	7.55	
+6,525.00
+8,825.00
+ID	58.609T	
+
+324	
+S
+SMGR.JK
+PT Semen Indonesia (Persero) Tbk
+2,660.00	0.00	0.00%	7.504M	14.783M	17.959T	156.33	
+2,070.00
+3,290.00
+ID	17.917T	
+
+325	
+T
+TMPO.JK
+PT Tempo Inti Media Tbk
+171.00	+1.00	+0.59%	7.478M	14.294M	180.975B	--	
+100.00
+272.00
+ID	179.917B	
+
+326	
+M
+MPIX.JK
+Mitra Pedagang Indonesia Tbk.
+71.00	0.00	0.00%	7.376M	12.763M	110.942B	6.63	
+55.00
+100.00
+ID	110.938B	
+
+327	
+W
+WIDI.JK
+PT Widiant Jaya Krenindo Tbk
+37.00	-1.00	-2.63%	7.238M	12.707M	59.201B	--	
+13.00
+69.00
+ID	60.801B	
+
+328	
+W
+WINE.JK
+PT HATTEN BALI Tbk
+202.00	-4.00	-1.94%	7.234M	3.773M	547.42B	13.96	
+186.00
+380.00
+ID	558.26B	
+
+329	
+P
+PLAN.JK
+PT Planet Properindo Jaya Tbk
+46.00	0.00	0.00%	7.124M	6.617M	41.249B	--	
+26.00
+82.00
+ID	41.249B	
+
+330	
+R
+RGAS.JK
+Kian Santang Muliatama Tbk.
+102.00	+3.00	+3.06%	7.067M	11.108M	148.842B	40.27	
+91.00
+153.00
+ID	144.464B	
+
+331	
+A
+ARTO.JK
+PT Bank Jago Tbk
+1,995.00	+25.00	+1.27%	7.029M	12.587M	27.653T	114.84	
+1,225.00
+2,670.00
+ID	27.307T	
+
+332	
+S
+STAA.JK
+PT Sumber Tani Agung Resources Tbk
+1,290.00	-30.00	-2.27%	6.934M	19.138M	14.065T	8.84	
+740.00
+1,965.00
+ID	14.39T	
+
+333	
+B
+BMHS.JK
+PT Bundamedik Tbk
+199.00	+7.00	+3.65%	6.906M	18.623M	1.712T	133.24	
+143.00
+274.00
+ID	1.652T	
+
+334	
+D
+DIVA.JK
+PT Distribusi Voucher Nusantara Tbk
+174.00	+2.00	+1.16%	6.789M	6.402M	243.598B	164.16	
+70.00
+246.00
+ID	240.798B	
+
+335	
+M
+MAPI.JK
+PT. Mitra Adiperkasa Tbk
+1,185.00	+5.00	+0.43%	6.732M	25.309M	19.671T	10.62	
+1,075.00
+1,595.00
+ID	19.588T	
+
+336	
+A
+AYLS.JK
+PT Agro Yasa Lestari Tbk
+236.00	-10.00	-4.07%	6.699M	9.991M	201.408B	--	
+53.00
+284.00
+ID	209.942B	
+
+337	
+B
+BAJA.JK
+PT Saranacentral Bajatama Tbk
+170.00	+5.00	+3.03%	6.686M	23.522M	306B	--	
+62.00
+222.00
+ID	297B	
+
+338	
+G
+GEMA.JK
+PT Gema Grahasarana Tbk
+95.00	-1.00	-1.03%	6.67M	21.693M	152B	8.26	
+77.00
+194.00
+ID	153.6B	
+
+339	
+K
+KING.JK
+PT Hoffmen Cleanindo Tbk
+216.00	-12.00	-5.26%	6.653M	1.159M	561.929B	101.78	
+160.00
+234.00
+ID	592.848B	
+
+340	
+K
+KKES.JK
+PT Kusuma Kemindo Sentosa Tbk
+30.00	0.00	0.00%	6.616M	1.998M	45B	--	
+20.00
+46.00
+ID	45B	
+
+341	
+J
+JIHD.JK
+PT Jakarta International Hotels & Development Tbk
+600.00	+30.00	+5.22%	6.534M	1.247M	1.397T	11.97	
+492.00
+1,840.00
+ID	1.328T	
+
+342	
+B
+BCIC.JK
+PT Bank JTrust Indonesia Tbk
+168.00	+9.00	+5.66%	6.526M	2.664M	3.042T	--	
+131.00
+224.00
+ID	2.879T	
+
+343	
+R
+RALS.JK
+PT Ramayana Lestari Sentosa Tbk
+436.00	+6.00	+1.40%	6.301M	6.566M	2.586T	7.63	
+324.00
+482.00
+ID	2.55T	
+
+344	
+C
+CASH.JK
+PT Cashlez Worldwide Indonesia Tbk
+102.00	-2.00	-1.92%	6.2M	4.083M	145.975B	--	
+51.00
+185.00
+ID	148.837B	
+
+345	
+D
+DYAN.JK
+PT Dyandra Media International Tbk
+95.00	+1.00	+1.08%	6.146M	5.267M	405.932B	7.69	
+68.00
+106.00
+ID	401.659B	
+
+346	
+P
+POLA.JK
+PT Pool Advista Finance Tbk
+51.00	+1.00	+2.00%	6.134M	4.217M	170.905B	--	
+10.00
+74.00
+ID	167.554B	
+
+347	
+O
+OILS.JK
+PT Indo Oil Perkasa Tbk
+242.00	+12.00	+5.22%	6.054M	20.582M	109.882B	13.02	
+78.00
+336.00
+ID	104.433B	
+
+348	
+A
+AMMS.JK
+PT Agung Menjangan Mas Tbk
+492.00	-13.00	-2.57%	6.04M	4.568M	607.766B	3,937.22	
+28.00
+530.00
+ID	606.246B	
+
+349	
+I
+ICBP.JK
+PT Indofood CBP Sukses Makmur Tbk
+8,100.00	+25.00	+0.31%	6.013M	13.781M	94.461T	15.60	
+7,950.00
+12,000.00
+ID	94.17T	
+
+350	
+R
+RAFI.JK
+PT Sari Kreasi Boga Tbk
+34.00	+2.00	+6.25%	5.998M	14.631M	106.357B	--	
+14.00
+42.00
+ID	100.1B	
+
+351	
+L
+LMAX.JK
+PT Lupromax Pelumas Indonesia Tbk
+178.00	-4.00	-2.19%	5.952M	5.481M	115.702B	232.51	
+25.00
+218.00
+ID	118.302B	
+
+352	
+R
+RSCH.JK
+PT Charlie Hospital Semarang Tbk
+404.00	-6.00	-1.46%	5.867M	8.413M	1.071T	--	
+234.00
+500.00
+ID	1.087T	
+
+353	
+B
+BAPA.JK
+PT Bekasi Asri Pemula Tbk
+95.00	+1.00	+1.06%	5.84M	57.18M	62.87B	--	
+50.00
+121.00
+ID	62.208B	
+
+354	
+S
+SSMS.JK
+PT Sawit Sumbermas Sarana Tbk.
+1,535.00	-15.00	-0.97%	5.839M	7.809M	14.621T	12.19	
+1,155.00
+2,530.00
+ID	14.764T	
+
+355	
+M
+MDLA.JK
+Medela Potentia Tbk.
+264.00	0.00	0.00%	5.833M	10.802M	3.699T	8.30	
+179.00
+318.00
+ID	3.699T	
+
+356	
+P
+PTPS.JK
+PT Pulau Subur Tbk
+187.00	-1.00	-0.53%	5.824M	32.378M	405.325B	10.60	
+61.00
+254.00
+ID	407.493B	
+
+357	
+L
+LION.JK
+PT Lion Metal Works Tbk
+462.00	-73.00	-13.70%	5.786M	943,624	240.314B	--	
+312.00
+1,015.00
+ID	278.286B	
+
+358	
+G
+GULA.JK
+PT Aman Agrindo Tbk
+272.00	+10.00	+3.79%	5.771M	8.164M	291.139B	--	
+232.00
+550.00
+ID	280.435B	
+
+359	
+V
+VICO.JK
+PT Victoria Investama Tbk
+206.00	-4.00	-1.90%	5.708M	1.76M	3.135T	6.87	
+130.00
+292.00
+ID	3.196T	
+
+360	
+B
+BNGA.JK
+PT Bank CIMB Niaga Tbk
+1,780.00	+10.00	+0.56%	5.668M	3.965M	45.008T	6.39	
+1,550.00
+1,855.00
+ID	44.499T	
+
+361	
+F
+FORE.JK
+PT Fore Kopi Indonesia Tbk
+565.00	+5.00	+0.90%	5.639M	9.819M	5.039T	57.35	
+252.00
+800.00
+ID	4.994T	
+
+362	
+O
+OMED.JK
+PT Jayamas Medica Industri Tbk
+206.00	-2.00	-0.96%	5.585M	4.029M	5.572T	15.42	
+143.00
+224.00
+ID	5.621T	
+
+363	
+A
+ALII.JK
+Ancara Logistics Indonesia Tbk.
+1,310.00	0.00	0.00%	5.555M	8.161M	20.732T	55.60	
+324.00
+1,470.00
+ID	20.732T	
+
+364	
+S
+SOFA.JK
+PT Boston Furniture Industries Tbk
+448.00	+40.00	+9.80%	5.495M	15.414M	740.801B	--	
+38.00
+530.00
+ID	674.658B	
+
+365	
+W
+WIIM.JK
+PT Wismilak Inti Makmur Tbk
+1,670.00	+75.00	+4.70%	5.452M	15.399M	3.467T	8.80	
+540.00
+1,930.00
+ID	3.311T	
+
+366	
+H
+HRME.JK
+PT Menteng Heritage Realty Tbk
+50.00	0.00	0.00%	5.336M	1.7M	297.938B	--	
+20.00
+58.00
+ID	297.938B	
+
+367	
+M
+MPMX.JK
+PT Mitra Pinasthika Mustika Tbk
+980.00	+15.00	+1.55%	5.315M	2.418M	4.292T	7.74	
+920.00
+1,115.00
+ID	4.227T	
+
+368	
+M
+MPOW.JK
+PT Megapower Makmur Tbk
+124.00	0.00	0.00%	5.267M	28.704M	101.308B	--	
+80.00
+197.00
+ID	101.308B	
+
+369	
+G
+GRPH.JK
+Griptha Putra Persada Tbk.
+63.00	0.00	0.00%	5.219M	8.35M	63B	22.93	
+50.00
+98.00
+ID	63B	
+
+370	
+E
+ELPI.JK
+PT Pelayaran Nasional Ekalya Purnamasari Tbk
+905.00	-35.00	-3.72%	5.212M	2.383M	6.708T	26.55	
+310.00
+970.00
+ID	6.967T	
+
+371	
+O
+OBMD.JK
+PT OBM Drilchem Tbk
+280.00	+8.00	+2.94%	5.174M	1.7M	225.678B	6.66	
+152.00
+366.00
+ID	219.23B	
+
+372	
+W
+WEHA.JK
+PT WEHA Transportasi Indonesia Tbk
+134.00	-2.00	-1.47%	5.171M	23.6M	195.714B	8.66	
+86.00
+165.00
+ID	198.635B	
+
+373	
+A
+ARNA.JK
+PT Arwana Citramulia Tbk
+520.00	-15.00	-2.78%	5.069M	5.773M	3.703T	9.27	
+510.00
+695.00
+ID	3.77T	
+
+374	
+B
+BREN.JK
+PT Barito Renewables Energy Tbk
+9,550.00	-125.00	-1.29%	5.066M	40.133M	1,277.658T	543.20	
+4,170.00
+10,725.00
+ID	77.393B	
+
+
+"""
+# ^^^ PASTE DATA LENGKAP DI SITU ^^^
+
+
+async def seed_database():
+    print("🗑️  Membersihkan data aset lama...")
+    await assets_collection.delete_many({})
+
+    lines = raw_data.strip().split("\n")
+    new_assets = []
+
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+
+        # --- LOGIKA SAHAM INDO (.JK) ---
+        if line.endswith(".JK"):
+            symbol = line
+
+            # Ambil baris SETELAHNYA sebagai Nama Perusahaan
+            name = symbol  # Default kalau nama gak ada
+            if i + 1 < len(lines):
+                potential_name = lines[i + 1].strip()
+                # Pastikan baris nama bukan angka/data harga
+                if not potential_name[0].isdigit() and len(potential_name) > 1:
+                    name = potential_name
+
+            doc = {
+                "symbol": symbol,
+                "name": name,
+                "category": "STOCKS_INDO",
+                "type": "stock_indo",
+                "lot_multiplier": 100,  # 1 Lot = 100 Lembar
+                "pip_scale": 1,
+            }
+            new_assets.append(doc)
+            print(f"✅ Saham: {symbol} | {name}")
+
+        # --- LOGIKA FOREX (=X) ---
+        elif line.endswith("=X"):
+            symbol = line
+            name = lines[i + 1].strip() if i + 1 < len(lines) else symbol
+
+            doc = {
+                "symbol": symbol,
+                "name": name,
+                "category": "FOREX",
+                "type": "forex",
+                "lot_multiplier": 100000,
+                "pip_scale": 10000 if "JPY" not in symbol else 100,
+            }
+            new_assets.append(doc)
+            print(f"✅ Forex: {symbol} | {name}")
+
+        i += 1
+
+    # Hapus duplikat berdasarkan simbol (jika ada copy paste dobel)
+    unique_assets = {v["symbol"]: v for v in new_assets}.values()
+
+    if unique_assets:
+        await assets_collection.insert_many(list(unique_assets))
+        print(
+            f"🎉 Sukses! Total {len(unique_assets)} aset (Saham & Forex) tersimpan di MongoDB."
+        )
+
+        # Preview 5 data terakhir untuk memastikan nama perusahaan masuk
+        print("\n🔍 Preview 5 Data Terakhir:")
+        for asset in list(unique_assets)[-5:]:
+            print(f"- {asset['symbol']}: {asset['name']}")
+    else:
+        print("⚠️ Tidak ada data valid yang ditemukan.")
+
+
+if __name__ == "__main__":
+    asyncio.run(seed_database())
