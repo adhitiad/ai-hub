@@ -5,9 +5,10 @@ import dotenv
 from fastapi import HTTPException, Security
 from fastapi.security.api_key import APIKeyHeader
 
-from src.core.database import fix_id, users_collection  # Ganti Supabase jadi Mongo
+from src.core.database import fix_id, users_collection
 
 dotenv.load_dotenv()
+
 
 api_key_header_name = os.getenv("API_KEY_HEADER", "X-API-Key")
 api_key_header = APIKeyHeader(name=api_key_header_name)
@@ -47,4 +48,7 @@ async def get_current_user(api_key: str = Security(api_key_header)):
     # Update counter secara background (fire and forget)
     await users_collection.update_one({"_id": user["_id"]}, {"$set": update_fields})
 
-    return fix_id(user)
+    # --- PERBAIKAN: Return User Utuh (Raw) ---
+    # Jangan gunakan fix_id(user) di sini karena akan menghapus '_id'.
+    # Route lain membutuhkan '_id' asli untuk operasi database.
+    return user
