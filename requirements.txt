@@ -9,7 +9,7 @@ stable-baselines3
 python-dotenv
 psutil
 pydantic
-passlib[bcrypt] 
+passlib[argon2] 
 motor
 pyjwt
 groq

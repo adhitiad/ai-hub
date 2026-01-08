@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, EmailStr
 
 from src.core.database import fix_id, users_collection  # <--- Pakai Mongo
+from src.core.logger import logger
 from src.core.security import generate_api_key, get_password_hash, verify_password
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -22,27 +23,35 @@ class LoginModel(BaseModel):
 @router.post("/register")
 async def register_user(data: RegisterModel):
     # 1. Cek Email (Async)
-    existing = await users_collection.find_one({"email": data.email})
-    if existing:
-        raise HTTPException(status_code=400, detail="Email sudah terdaftar.")
+    try:
+        existing = await users_collection.find_one({"email": data.email})
+        if existing:
+            raise HTTPException(status_code=400, detail="Email sudah terdaftar.")
 
-    # 2. Siapkan Dokumen User
-    new_user = {
-        "email": data.email,
-        "password_hash": get_password_hash(data.password),
-        "api_key": generate_api_key(),
-        "role": "free",
-        "subscription_status": "active",
-        "daily_requests_limit": 50,
-        "requests_today": 0,
-        "last_request_date": datetime.now().strftime("%Y-%m-%d"),
-        "watchlist": [],  # <--- Embed Watchlist disini
-        "created_at": datetime.utcnow(),
-    }
+        # 2. Siapkan Dokumen User
+        new_user = {
+            "email": data.email,
+            "password_hash": get_password_hash(data.password),
+            "api_key": generate_api_key(),
+            "role": "free",
+            "subscription_status": "active",
+            "daily_requests_limit": 50,
+            "requests_today": 0,
+            "last_request_date": datetime.now().strftime("%Y-%m-%d"),
+            "watchlist": [],  # <--- Embed Watchlist disini
+            "created_at": datetime.utcnow(),
+        }
 
-    # 3. Simpan ke MongoDB
-    await users_collection.insert_one(new_user)
-    return {"status": "success", "message": "Registrasi berhasil."}
+        # 3. Simpan ke MongoDB
+        await users_collection.insert_one(new_user)
+        return {
+            "status": "success",
+            "message": "Registrasi berhasil.",
+            "code": 201,
+        }
+    except Exception as e:
+        logger.error(f"Error registering user: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
 
 
 @router.post("/login")

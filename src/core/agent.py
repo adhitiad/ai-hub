@@ -73,7 +73,7 @@ def get_detailed_signal(symbol, asset_info, custom_balance=None):
     model_path = files[0]
     try:
         model = PPO.load(model_path)
-        df = fetch_data(symbol, period="1mo", interval="1h")
+        df = fetch_data(symbol, period="1y", interval="1h")
         if df.empty:
             return {"Symbol": symbol, "Action": "HOLD", "Reason": "No Data"}
 

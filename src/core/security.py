@@ -2,7 +2,8 @@ import secrets
 
 from passlib.context import CryptContext
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# PERBAIKAN: Gunakan 'argon2' alih-alih 'bcrypt'
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 
 def verify_password(plain_password, hashed_password):

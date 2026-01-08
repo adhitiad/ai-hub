@@ -95,8 +95,20 @@ def read_file_content(path_data: dict, user: dict = Depends(verify_owner)):
 
 @router.get("/logs/stream")
 def stream_log(user=Depends(verify_owner)):
-    with open("logs/app.log", "r") as f:
-        return {"logs": f.readlines()[-50:]}
+    log_path = "logs/app.log"
+
+    if not os.path.exists(log_path):
+        return {"logs": ["Log file not yet created."]}
+
+    # PERBAIKAN: Tambahkan encoding="utf-8" dan errors="replace"
+    # errors="replace" berguna agar jika ada karakter aneh, tidak bikin server crash (diganti tanda tanya)
+    try:
+        with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+            # Ambil 50 baris terakhir
+            return {"logs": lines[-50:]}
+    except Exception as e:
+        return {"logs": [f"Error reading log file: {str(e)}"]}
 
 
 # ==========================================
