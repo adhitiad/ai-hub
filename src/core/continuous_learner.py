@@ -52,7 +52,7 @@ async def train_weekly_models_async():
         for symbol in items:
             try:
                 # 1. Fetch Data Market
-                df = fetch_data(symbol, period="1y", interval="1h")
+                df = fetch_data(symbol, period="max", interval="1h")
                 if df.empty:
                     continue
 
@@ -70,7 +70,7 @@ async def train_weekly_models_async():
                 if latest_path:
                     model = PPO.load(latest_path, env=env)
                 else:
-                    model = PPO("MlpPolicy", env, verbose=0)
+                    model = PPO(policy="MlpPolicy", env=env, verbose=0)
 
                 # Train
                 model.learn(total_timesteps=20000)

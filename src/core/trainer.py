@@ -1,4 +1,5 @@
 import os
+import shutil  # Penting untuk fungsi deploy
 import sys
 
 from stable_baselines3 import PPO
@@ -34,7 +35,8 @@ def train_candidate(symbol, total_timesteps=20000):
 
         # 5. Save ke Folder KANDIDAT
         info = get_asset_info(symbol)
-        category = info["category"].lower()
+        # Handle jika asset tidak punya kategori (misal crypto/forex default)
+        category = info.get("category", "unknown").lower() if info else "common"
 
         safe_symbol = symbol.replace("=", "").replace("^", "")
         save_path = f"{CANDIDATE_DIR}/{category}/{safe_symbol}.zip"
@@ -57,17 +59,19 @@ def deploy_model(symbol):
     Memindahkan model dari Candidate -> Production (Live).
     Hanya dipanggil jika Backtest sukses.
     """
-    import shutil
+    try:
+        info = get_asset_info(symbol)
+        category = info.get("category", "unknown").lower() if info else "common"
+        safe_symbol = symbol.replace("=", "").replace("^", "")
 
-    info = get_asset_info(symbol)
-    category = info["category"].lower()
-    safe_symbol = symbol.replace("=", "").replace("^", "")
+        src = f"{CANDIDATE_DIR}/{category}/{safe_symbol}.zip"
+        dst = f"{PRODUCTION_DIR}/{category}/{safe_symbol}.zip"
 
-    src = f"{CANDIDATE_DIR}/{category}/{safe_symbol}.zip"
-    dst = f"{PRODUCTION_DIR}/{category}/{safe_symbol}.zip"
-
-    if os.path.exists(src):
-        os.makedirs(os.path.dirname(dst), exist_ok=True)
-        shutil.copy(src, dst)
-        return True
-    return False
+        if os.path.exists(src):
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy(src, dst)
+            return True
+        return False
+    except Exception as e:
+        print(f"Deployment Error: {e}")
+        return False

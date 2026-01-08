@@ -1,236 +1,226 @@
-# 📚 AI Trading Hub - API Documentation
+# 📘 AI Trading Hub - API Documentation v2.0
 
+**Backend Version:** 2.0.0 (Production Ready)  
 **Base URL:** `http://localhost:8000`  
-**Version:** v1.0  
-**Format:** JSON
-
-## 🔐 Authentication & Security
-
-Semua endpoint (kecuali `/auth` dan `/payment/webhook`) dilindungi. Anda wajib menyertakan **API Key** di header setiap request.
-
-| Header Name | Value                    | Description                       |
-| :---------- | :----------------------- | :-------------------------------- |
-| `X-API-KEY` | `your_generated_api_key` | Didapatkan setelah login/register |
+**Authentication:** Bearer Token (JWT)
 
 ---
 
-## 1. Authentication
+## 🌟 Introduction
 
-### Register User
+The AI Trading Hub API provides AI-based financial market analysis services, including:
 
-Mendaftarkan pengguna baru dengan role default `free`.
+- **Deep Learning (LSTM/PPO):** Price direction prediction.
+- **Bandarmology (IDX):** Detection of accumulation/distribution by large players.
+- **Whale Detector (Forex):** Tracking large money movements (Smart Money Concepts).
+- **Pattern Recognition:** Detection of candlestick patterns (Engulfing, Doji, etc.).
+- **Automated Pipeline:** Continuous Training, Validation, and Deployment of models.
 
-- **URL:** `/auth/register`
-- **Method:** `POST`
-- **Body:**
-  ```json
-  {
-    "email": "trader@example.com",
-    "password": "securepassword123"
-  }
-  ```
+---
+
+## 🔐 1. Authentication & Users
+
+### Register
+
+`POST /auth/register`
+Registers a new user.
+
+**Request Body:**
+
+```json
+{
+  "email": "user@example.com",
+  "password": "securepassword",
+  "full_name": "Trader Pro"
+}
+```
 
 ### Login
 
-Masuk untuk mendapatkan API Key dan Role.
+`POST /auth/token`
+Obtains an Access Token (JWT).
 
-- **URL:** `/auth/login`
-- **Method:** `POST`
-- **Body:**
-  ```json
-  {
-    "email": "trader@example.com",
-    "password": "securepassword123"
-  }
-  ```
-- **Response:**
-  ```json
-  {
-    "status": "success",
-    "user": {
-      "email": "trader@example.com",
-      "role": "free",
-      "api_key": "a1b2c3d4..." // <--- Simpan ini untuk Header X-API-KEY
-    }
-  }
-  ```
+**Form Data:**
 
----
+- `username` (email)
+- `password`
 
-## 2. Dashboard & Signals (Core)
+**Response:**
 
-### Get All Active Signals
+```json
+{
+  "access_token": "...",
+  "token_type": "bearer"
+}
+```
 
-Mengambil semua sinyal trading yang sedang aktif, lengkap dengan analisis AI, Bandarmology, dan Whale Detector.
+### User Profile
 
-- **URL:** `/dashboard/all`
-- **Method:** `GET`
-- **Headers:** `X-API-KEY: ...`
-- **Response Example (Stock Indo):**
-  ```json
-  {
-    "BBCA.JK": {
-      "Symbol": "BBCA.JK",
-      "Category": "STOCKS_INDO",
-      "Action": "BUY",
-      "Price": 9800,
-      "Tp": 10200,
-      "Sl": 9500,
-      "LotSize": "50 Lot (5000 Lbr)",
-      "Bandar_Info": {
-        "Status": "ACCUMULATION",
-        "Score": "85/100",
-        "Message": "Big Player Hajar Kanan"
-      },
-      "AI_Analyst": {
-        "Verdict": "FOLLOW",
-        "Projected_Profit": "Rp 2.000.000",
-        "Projected_Loss": "Rp 500.000",
-        "Risk_Level": "3/10",
-        "Note": "Volume spike detected aligns with technical breakout."
-      }
-    }
-  }
-  ```
-
----
-
-## 3. Search & Navigation
-
-### Global Search
-
-Mencari aset berdasarkan simbol. Mendukung pencarian parsial (misal: "EUR").
-
-- **URL:** `/search/?q={query}`
-- **Method:** `GET`
-- **Example:** `/search/?q=EUR`
-- **Response:**
-  ```json
-  [
-    {
-      "symbol": "EURUSD=X",
-      "category": "FOREX",
-      "type": "forex",
-      "status": "BUY",
-      "has_signal": true
-    }
-  ]
-  ```
-
----
-
-## 4. User Features
-
-### Add to Watchlist
-
-Menambahkan simbol ke daftar pantauan pribadi.
-
-- **URL:** `/user/watchlist/add`
-- **Method:** `POST`
-- **Query Param:** `?symbol=BBCA.JK`
-
-### Get Watchlist
-
-Melihat daftar pantauan.
-
-- **URL:** `/user/watchlist`
-- **Method:** `GET`
+`GET /user/me`
+Retrieves personal data, role (Free/Premium), and request quota.
 
 ### Request Upgrade
 
-Mengajukan perubahan role (Free -> Premium/Enterprise).
+`POST /user/request-upgrade`
+Requests an upgrade to a higher membership level.
 
-- **URL:** `/user/request-upgrade`
-- **Method:** `POST`
-- **Body:**
+**Request Body:**
 
-  ```json
-  {
-    "target_role": "premium"
-  }
-  ```
+```json
+{
+  "target_role": "premium" // or "enterprise"
+}
+```
 
----
+## 📡 2. Real-Time Market Data
 
-## 5. Admin Panel
+### Dashboard Stream
+
+`GET /dashboard/all`
+Retrieves the latest snapshot of signals for all monitored assets. Data is sourced from the in-memory signal bus.
+
+**Output:** List of signals (Symbol, Action, Price, Confidence, AI Analysis).
+
+### WebSocket Stream
+
+`WS /ws/market/{symbol}`
+Real-time connection for live prices and signals per second.
+
+**URL Example:** ws://localhost:8000/ws/market/BBCA.JK
+
+**Data:** JSON object containing OHLC, AI probabilities, and anomaly detection.
+
+## 🧠 3. AI Pipeline (Auto-ML)
+
+New feature for independently training and optimizing models.
+
+### Run Optimization
+
+`POST /pipeline/optimize/{symbol}`
+Runs a complete cycle: Train Candidate -> Backtest Validation -> Deploy to Live.
+
+**Parameters:**
+
+- `target_win_rate` (Optional, default 60.0): Minimum win rate required for model deployment.
+
+**Response:** Report of training steps and validation statistics.
+
+## 📈 4. Backtesting
+
+Test strategies before live trading.
+
+### Run Backtest
+
+`POST /backtest/run`
+Simulates trading using historical data.
+
+**Request Body:**
+
+```json
+{
+  "symbol": "GOTO.JK",
+  "period": "1y", // 1mo, 6mo, 1y, 2y
+  "strategy": "ai_ppo", // ai_ppo, macd, rsi
+  "initial_balance": 100000000
+}
+```
+
+**Response:** ROI, Win Rate, Max Drawdown, Equity Curve.
+
+## 🚨 5. Alerts & Screener
+
+### Create Alert
+
+`POST /alerts/create`
+Sets an alarm for price or technical conditions.
+
+**Request Body:**
+
+```json
+{
+  "symbol": "XAUUSD",
+  "condition": "ABOVE",
+  "price": 2400.0,
+  "note": "Gold Breakout"
+}
+```
+
+### Market Screener
+
+`POST /screener/scan`
+Filters stocks/forex based on AI criteria.
+
+**Request Body:**
+
+```json
+{
+  "market": "IDX", // IDX, FOREX, CRYPTO
+  "min_score": 70, // Minimum Bandarmology/AI score
+  "trend": "UPTREND"
+}
+```
+
+## 📝 6. Trading Journal
+
+### Log Trade
+
+`POST /journal/add`
+Records manual or automatic trading positions.
+
+**Request Body:**
+
+```json
+{
+  "symbol": "BTC-USD",
+  "action": "BUY",
+  "entry_price": 45000,
+  "lot_size": 0.1,
+  "reason": "AI Signal + News"
+}
+```
+
+### Performance Stats
+
+`GET /journal/stats`
+Views personal trading performance statistics (Win Rate, Profit Factor).
+
+## 🛠 7. Admin Operations
+
+(Accessible only by Role: ADMIN)
 
 ### View Upgrade Queue
 
-Melihat antrian user yang meminta upgrade.
-
-- **URL:** `/admin/upgrade-queue`
-- **Method:** `GET`
-- **Requires Role:** `admin` or `owner`
+`GET /admin/upgrade-queue`
+Views the list of users requesting account upgrades.
 
 ### Execute Upgrade
 
-Menyetujui atau menolak permintaan upgrade.
+`POST /admin/execute-upgrade`
+Approves or rejects upgrade requests.
 
-- **URL:** `/admin/execute-upgrade`
-- **Method:** `POST`
-- **Body:**
-  ```json
-  {
-    "request_id": "663a1b2...", // MongoDB ID
-    "action": "APPROVE", // or REJECT
-    "note": "Payment verified via BCA"
-  }
-  ```
+**Request Body:**
 
----
+```json
+{
+  "request_id": "65e...",
+  "action": "APPROVE", // or "REJECT"
+  "note": "Payment received"
+}
+```
 
-## 6. Owner Operations (God Mode)
+## ℹ️ Asset Configuration Notes
 
-### System Stats
+The system now uses Auto-Detection for asset configuration:
 
-Melihat beban server real-time.
+- Suffix .JK → Automatically considered Indonesian Stocks (1 Lot = 100 Shares).
+- Suffix =X → Automatically considered Forex.
+- JPY Pairs → Pip Scale 100.
+- Other Pairs → Pip Scale 10000.
+- Suffix -USD → Automatically considered Crypto.
+- Others → Considered US Stocks (1 Lot = 1 Share).
 
-- **URL:** `/owner/system/stats`
-- **Method:** `GET`
-- **Requires Role:** `owner`
+You no longer need to manually register each symbol in config_assets.py.
 
-### Stream Logs
+```
 
-Melihat 50 baris terakhir dari log server (termasuk error & aktivitas bot).
-
-- **URL:** `/owner/logs/stream`
-- **Method:** `GET`
-
-### Retrain AI
-
-Memaksa server untuk melatih ulang model AI di background.
-
-- **URL:** `/owner/ai/retrain`
-- **Method:** `POST`
-
-### File Manager
-
-- **List Files:** `GET /owner/files/tree`
-- **Read File:** `POST /owner/files/read` (`{ "path": "main.py" }`)
-- **Save File:** `POST /owner/files/save` (`{ "path": "main.py", "content": "..." }`)
-
----
-
-## 7. Payments (Midtrans)
-
-### Create Transaction
-
-Membuat link pembayaran (Snap Token) untuk upgrade otomatis.
-
-- **URL:** `/payment/create-transaction`
-- **Method:** `POST`
-- **Query Param:** `?plan=premium` (or `enterprise`)
-- **Response:**
-  ```json
-  {
-    "token": "snap_token_xyz...",
-    "redirect_url": "[https://app.sandbox.midtrans.com/snap/](https://app.sandbox.midtrans.com/snap/)..."
-  }
-  ```
-
-### Webhook
-
-Endpoint yang dipanggil oleh Server Midtrans (Callback) saat pembayaran sukses. Tidak perlu dipanggil manual.
-
-- **URL:** `/payment/webhook`
-- **Method:** `POST`
+```

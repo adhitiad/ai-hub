@@ -1,7 +1,6 @@
 import asyncio
 from datetime import datetime
 
-import subscription_scheduler
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
@@ -22,6 +21,7 @@ from src.api.roles import UserRole, check_permission
 from src.api.screener_routes import router as screener_router
 from src.api.search_routes import router as search_router
 from src.api.user_routes import router as user_router
+from src.core import subscription_scheduler
 from src.core.database import (
     fix_id,
     init_db_indexes,

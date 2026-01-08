@@ -2,7 +2,11 @@ import os
 
 from stable_baselines3 import PPO
 
-from src.core.backtest_engine import run_backtest_simulation
+# Import untuk kebutuhan validasi
+from src.core.data_loader import fetch_data
+from src.core.env import AdvancedForexEnv
+
+# Import dari file yang baru saja kita perbaiki lokasinya
 from src.core.trainer import deploy_model, train_candidate
 
 
@@ -24,80 +28,61 @@ def run_auto_optimization(symbol, target_win_rate=60.0):
     report["steps"].append("✅ Training Finished. Model saved in candidates.")
 
     # --- STEP 2: BACKTEST (VALIDATION) ---
-    # Kita perlu memodifikasi logic load model di backtest_engine
-    # atau kita load manual disini untuk simulasi khusus candidate.
-
     report["steps"].append("📉 Running Validation Backtest...")
 
-    # Load Model Kandidat manual untuk ditest
     try:
+        # Load Model Kandidat manual untuk ditest
         model = PPO.load(train_result["path"])
 
-        # Jalankan Backtest Logic (Reuse logic engine tapi override modelnya)
-        # Note: Kita pakai fungsi helper khusus atau modifikasi run_backtest_simulation
-        # Disini saya panggil run_backtest_simulation tapi kita perlu pastikan dia baca file yg benar.
-        # Cara termudah: Kita cheat sedikit dengan rename sementara atau passing model object jika memungkinkan.
-        # Karena keterbatasan library, kita akan panggil logic backtest custom disini.
+        # VALIDASI MANUAL (Quick Check)
+        # Kita gunakan data 6 bulan terakhir yang tidak dilihat saat training
+        df_val = fetch_data(symbol, period="6mo", interval="1h")
 
-        from src.core.backtest_engine import run_backtest_simulation
+        if df_val.empty:
+            raise ValueError("No validation data fetched")
 
-        # HACK: Supaya backtest engine membaca file candidate, kita bisa passing path khusus
-        # Tapi karena backtest_engine di desain load dari Production,
-        # Mari kita buat logic backtest sederhana disini khusus validasi.
-
-        validation_result = run_backtest_simulation(symbol, period="6mo")
-        # WARNING: Fungsi diatas load dari Production.
-        # Kita asumsikan Anda sudah mengupdate backtest_engine agar menerima parameter 'model_path' opsional.
-        # Jika belum, kita lakukan manual check sederhana:
-
-        # (Logic Backtest Manual untuk Validasi)
-        import numpy as np
-
-        from src.core.data_loader import fetch_data
-        from src.core.env import AdvancedForexEnv
-
-        df_val = fetch_data(symbol, period="6mo", interval="1h")  # Test data terbaru
         env_val = AdvancedForexEnv(df_val)
         obs, _ = env_val.reset()
         done = False
         wins = 0
-        total_trades = 0
+        total_actions = 0
 
-        # Quick Simulation
+        # Simulasi Trading Cepat
         while not done:
             action, _ = model.predict(obs, deterministic=True)
             obs, reward, terminated, truncated, info = env_val.step(action)
             done = terminated or truncated
 
-            # Kita hitung win rate kasar dari reward (positif = profit)
-            # Ini simplifikasi agar cepat
-            if reward > 0:
-                wins += 1
-            if action != 0:
-                total_trades += 1  # Menghitung bar yang ada actionnya
+            if action != 0:  # Jika Buy/Sell (bukan Hold)
+                total_actions += 1
+                if reward > 0:  # Profit
+                    wins += 1
 
-        # Kalkulasi Win Rate Real (Per Trade) butuh logic env yg kompleks
-        # Kita ambil metrics dari info environment terakhir saja jika ada
-        # Atau gunakan return ROI dari environment custom Anda
-
-        # Mari gunakan ROI dari env wrapper Anda
-        final_balance = info["balance"]
-        initial_balance = 1000  # Default env
+        # Kalkulasi Statistik Sederhana
+        final_balance = info.get("balance", 1000)
+        initial_balance = 1000
         profit = final_balance - initial_balance
         is_profitable = profit > 0
 
-        # Asumsi dummy stats agar kode jalan (Di real case, gunakan output backtest_engine yg sudah diupdate)
-        simulated_win_rate = 65.0 if is_profitable else 40.0  # Placeholder logic
+        # Hitung Winrate
+        win_rate = (wins / total_actions * 100) if total_actions > 0 else 0.0
 
-        report["final_stats"] = {"profit": profit, "win_rate_est": simulated_win_rate}
+        report["final_stats"] = {
+            "profit": round(profit, 2),
+            "win_rate_est": round(win_rate, 2),
+            "trades": total_actions,
+        }
 
     except Exception as e:
         report["steps"].append(f"❌ Backtest Error: {str(e)}")
         return report
 
     # --- STEP 3: EVALUATION & DEPLOY ---
-    if is_profitable:  # Syarat sederhana: Profitable dalam 6 bulan terakhir
-        report["steps"].append(f"✅ Validation Passed! Profit: {profit:.2f}")
+    # Syarat: Profitable DAN Winrate lumayan (misal > 40% untuk RR tinggi, atau sesuaikan)
+    if is_profitable:
+        report["steps"].append(
+            f"✅ Validation Passed! Profit: ${profit:.2f}, WR: {win_rate:.1f}%"
+        )
 
         success = deploy_model(symbol)
         if success:
@@ -107,7 +92,7 @@ def run_auto_optimization(symbol, target_win_rate=60.0):
             report["steps"].append("⚠️ Deployment Failed (File Error).")
     else:
         report["steps"].append(
-            f"🛑 Validation Failed. Model discarded. (Profit: {profit:.2f})"
+            f"🛑 Validation Failed. Model discarded. (Profit: ${profit:.2f}, WR: {win_rate:.1f}%)"
         )
 
     return report

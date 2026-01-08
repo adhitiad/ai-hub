@@ -35,10 +35,45 @@ ASSETS = {
 
 
 def get_asset_info(symbol):
-    # (Logika sama seperti sebelumnya)
+    """
+    Mengambil konfigurasi aset.
+    Jika tidak ada di dictionary ASSETS, gunakan logika fallback otomatis.
+    """
+
+    # 1. Cek Config Eksplisit (Hardcoded)
     for category, items in ASSETS.items():
         if symbol in items:
-            info = items[symbol]
+            info = items[symbol].copy()
             info["category"] = category
             return info
-    return None
+
+    # 2. Logika Fallback Dinamis (Auto-Detect)
+
+    # --- A. SAHAM INDONESIA (*.JK) ---
+    if symbol.endswith(".JK"):
+        return {
+            "type": "stock_indo",
+            "category": "STOCKS_INDO",
+            "pip_scale": 1,  # Pergerakan harga dalam Rupiah (fraksi harga)
+            "lot_multiplier": 100,  # 1 Lot = 100 Lembar
+        }
+
+    # --- B. FOREX (*=X) ---
+    if "=X" in symbol:
+        # Deteksi pair JPY (Yen) karena pip scale-nya beda (2 desimal vs 4 desimal)
+        is_jpy = "JPY" in symbol
+        return {
+            "type": "forex",
+            "category": "FOREX",
+            "pip_scale": 100 if is_jpy else 10000,
+            "lot_multiplier": 100000,  # 1 Lot Standar = 100.000 Unit
+        }
+
+    # --- C. CRYPTO (-USD) ---
+
+    return {
+        "type": "crypto",
+        "category": "CRYPTO",
+        "pip_scale": 1,  # Tergantung harga, biasanya presisi tinggi
+        "lot_multiplier": 1,
+    }

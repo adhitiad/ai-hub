@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 import requests
@@ -8,7 +9,7 @@ from src.core.logger import logger
 TELEGRAM_BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"  # Dapat dari @BotFather
 
 
-def send_telegram_message(chat_id, message):
+async def send_telegram_message(chat_id, message):
     """
     Mengirim pesan ke Telegram User.
     """
@@ -23,7 +24,7 @@ def send_telegram_message(chat_id, message):
     }
 
     try:
-        response = requests.post(url, json=payload, timeout=5)
+        response = await asyncio.to_thread(requests.post, url, json=payload, timeout=5)
         if response.status_code != 200:
             logger.error(f"Telegram Fail: {response.text}")
     except Exception as e:

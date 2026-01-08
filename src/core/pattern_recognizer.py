@@ -1,65 +1,115 @@
+import numpy as np
 import pandas as pd
-import pandas_ta as ta
 
 
 def detect_chart_patterns(df):
     """
-    Mendeteksi pola candlestick (AI Vision) menggunakan Pandas-TA.
-    Mengenali: Engulfing, Harami, Doji, Stars, Three Soldiers, dll.
+    Mendeteksi pola candlestick secara manual (Native Python) tanpa dependency TA-Lib.
+    Mengenali: Engulfing, Hammer, Shooting Star, Doji, Marubozu.
+
     Output:
         - score (int): Total skor sentimen (-100 s/d 100)
         - patterns (list): Daftar nama pola yang terdeteksi
     """
-    # Copy dataframe agar tidak mengganggu data asli
-    work_df = df.copy()
+    if df.empty or len(df) < 3:
+        return 0, []
 
-    # 1. Jalankan Deteksi Semua Pola ('all')
-    # Ini akan menambahkan banyak kolom baru berawalan 'CDL_'
-    # Warning: Ini agak berat, pastikan server kuat. Jika lambat, pilih pola spesifik saja.
-    work_df.ta.cdl_pattern(name="all", append=True)
+    # Ambil 2 candle terakhir untuk perbandingan
+    curr = df.iloc[-1]
+    prev = df.iloc[-2]
 
-    # Ambil baris terakhir (candle terbaru)
-    last_row = work_df.iloc[-1]
+    patterns = []
+    score = 0
 
-    # Filter kolom yang berawalan 'CDL_'
-    pattern_cols = [c for c in work_df.columns if c.startswith("CDL_")]
+    # --- Helper Values ---
+    # Current Candle
+    c_open, c_high, c_low, c_close = (
+        curr["Open"],
+        curr["High"],
+        curr["Low"],
+        curr["Close"],
+    )
+    c_body = abs(c_close - c_open)
+    c_range = c_high - c_low
+    c_upper_wick = c_high - max(c_close, c_open)
+    c_lower_wick = min(c_close, c_open) - c_low
 
-    detected_patterns = []
-    total_score = 0
+    # Previous Candle
+    p_open, p_high, p_low, p_close = (
+        prev["Open"],
+        prev["High"],
+        prev["Low"],
+        prev["Close"],
+    )
+    p_body = abs(p_close - p_open)
 
-    # Bobot Pola (Bisa disesuaikan)
-    # Beberapa pola lebih kuat sinyalnya daripada yang lain
-    WEIGHTS = {
-        "CDL_ENGULFING": 2.0,  # Reversal Kuat
-        "CDL_MORNINGSTAR": 2.0,  # Reversal Kuat
-        "CDL_EVENINGSTAR": 2.0,
-        "CDL_HAMMER": 1.5,
-        "CDL_SHOOTINGSTAR": 1.5,
-        "CDL_DOJI": 0.5,  # Indecision (Lemah)
-        "CDL_SPINNINGTOP": 0.5,
-    }
+    # Hindari pembagian dengan nol
+    if c_range == 0:
+        c_range = 0.00001
 
-    for col in pattern_cols:
-        val = last_row[col]
-        if val != 0:
-            # Pandas-TA return 100 (Bullish) atau -100 (Bearish)
+    # ==========================
+    # 1. DOJI (Indecision)
+    # ==========================
+    # Body sangat tipis (< 10% dari total range)
+    if (c_body / c_range) < 0.1:
+        # Cek tipe Doji
+        if c_lower_wick > 3 * c_body and c_upper_wick < c_body:
+            patterns.append("Bullish Dragonfly Doji")
+            score += 10
+        elif c_upper_wick > 3 * c_body and c_lower_wick < c_body:
+            patterns.append("Bearish Gravestone Doji")
+            score -= 10
+        else:
+            patterns.append("Neutral Doji")
+            # Score 0 atau +5/-5 tergantung tren (disini netral dulu)
 
-            # Bersihkan nama kolom (misal: CDL_ENGULFING -> Engulfing)
-            pattern_name = col.replace("CDL_", "").replace("_", " ").title()
+    # ==========================
+    # 2. HAMMER & HANGING MAN
+    # ==========================
+    # Lower wick panjang (> 2x body), Upper wick kecil
+    elif c_lower_wick > 2 * c_body and c_upper_wick < c_body:
+        # Hammer (Bullish) biasanya di lembah, Hanging Man (Bearish) di puncak
+        # Kita asumsikan Bullish signal sederhana
+        patterns.append("Bullish Hammer")
+        score += 15
 
-            # Tentukan Arah
-            sentiment = "Bullish" if val > 0 else "Bearish"
-            detected_patterns.append(f"{sentiment} {pattern_name}")
+    # ==========================
+    # 3. SHOOTING STAR & INVERTED HAMMER
+    # ==========================
+    # Upper wick panjang (> 2x body), Lower wick kecil
+    elif c_upper_wick > 2 * c_body and c_lower_wick < c_body:
+        # Shooting Star (Bearish)
+        patterns.append("Bearish Shooting Star")
+        score -= 15
 
-            # Hitung Skor
-            # Normalisasi 100 -> 1, -100 -> -1
-            base_score = 10 if val > 0 else -10
+    # ==========================
+    # 4. ENGULFING (Kuat)
+    # ==========================
+    # Bullish Engulfing: Prev Merah, Curr Hijau. Body Curr "menelan" Prev.
+    if (p_close < p_open) and (c_close > c_open):
+        if c_close > p_open and c_open < p_close:
+            patterns.append("Bullish Engulfing")
+            score += 25
 
-            # Kalikan dengan bobot kekuatan pola
-            multiplier = WEIGHTS.get(col, 1.0)
-            total_score += base_score * multiplier
+    # Bearish Engulfing: Prev Hijau, Curr Merah.
+    elif (p_close > p_open) and (c_close < c_open):
+        if c_close < p_open and c_open > p_close:
+            patterns.append("Bearish Engulfing")
+            score -= 25
 
-    # Clamping Score agar tidak lebih dari -100 s/d 100
-    total_score = max(min(total_score, 100), -100)
+    # ==========================
+    # 5. MARUBOZU (Momentum)
+    # ==========================
+    # Body penuh (> 90% range), wick sangat kecil
+    if (c_body / c_range) > 0.9:
+        if c_close > c_open:
+            patterns.append("Bullish Marubozu")
+            score += 10
+        else:
+            patterns.append("Bearish Marubozu")
+            score -= 10
 
-    return int(total_score), detected_patterns
+    # Clamping Score agar tetap di range -100 s/d 100
+    total_score = max(min(score, 100), -100)
+
+    return int(total_score), patterns
