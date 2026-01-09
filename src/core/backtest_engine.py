@@ -10,7 +10,7 @@ from src.core.data_loader import fetch_data
 MODELS_DIR = "models"
 
 
-def run_backtest_simulation(symbol, period="1y", initial_balance=100000000):
+def run_backtest_simulation(symbol, period="2y", initial_balance=100000000):
     """
     Menjalankan simulasi AI pada data masa lalu.
     """

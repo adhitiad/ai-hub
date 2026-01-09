@@ -9,7 +9,7 @@ router = APIRouter(prefix="/backtest", tags=["Backtest Playground"])
 @router.get("/run")
 async def run_backtest(
     symbol: str,
-    period: str = "1y",
+    period: str = "2y",
     balance: int = 100000000,
     user: dict = Depends(get_current_user),
 ):

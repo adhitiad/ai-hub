@@ -8,7 +8,7 @@ import yfinance as yf
 from src.core.logger import logger
 
 
-def fetch_data(symbol="EURUSD=X", period="1y", interval="1h", retries=3):
+def fetch_data(symbol="EURUSD=X", period="2y", interval="1h", retries=3):
     """
     Mengambil data menggunakan yf.Ticker dengan penanganan Kolom Ganda (Duplicate Columns).
     """
@@ -22,7 +22,7 @@ def fetch_data(symbol="EURUSD=X", period="1y", interval="1h", retries=3):
 
             # 1. Cek Apakah Data Kosong
             if df.empty:
-                if period == "1y":
+                if period == "2y":
                     df = ticker.history(
                         period="max", interval=interval, auto_adjust=False
                     )
@@ -75,7 +75,7 @@ def fetch_data(symbol="EURUSD=X", period="1y", interval="1h", retries=3):
                 df = df.rename(columns={"ATRr_14": "ATR_14"})
 
             # Debugging (Opsional): Cek kolom apa saja yang ada kalau masih error
-            logging.info(f"Columns in {symbol}: {df.columns.tolist()}")
+            # logging.info(f"Columns in {symbol}: {df.columns.tolist()}")
 
             # 5. Drop NaN
             df_clean = df.dropna()
@@ -95,3 +95,31 @@ def fetch_data(symbol="EURUSD=X", period="1y", interval="1h", retries=3):
             else:
                 logger.error(f"❌ GAGAL {symbol}: {e}")
                 return pd.DataFrame()
+
+
+def validate_data_quality(df):
+    """
+    Mencegah sampah masuk ke AI.
+    Return: (bool, reason)
+    """
+    # 1. Cek Data Kosong / Sedikit
+    if len(df) < 50:
+        return False, "Not enough data points (<50)"
+
+    # 2. Cek Flatline (Harga tidak bergerak sama sekali - Libur/Suspensi)
+    last_5_candles = df["Close"].tail(5)
+    if last_5_candles.nunique() == 1:
+        return False, "Flatline Data (Market Closed/Suspended)"
+
+    # 3. Cek Harga Nol/Negatif (Bug YFinance)
+    if (df["Close"] <= 0).any():
+        return False, "Zero/Negative Prices detected"
+
+    # 4. Cek Gap Abnormal (Misal glitch harga naik 500% dalam 1 jam)
+    # Gunakan pct_change
+    returns = df["Close"].pct_change().dropna()
+    max_change = returns.abs().max()
+    if max_change > 0.5:  # 50% change in 1 hour is likely a glitch (except crypto pump)
+        return False, f"Abnormal Spike Detected ({max_change*100:.0f}%)"
+
+    return True, "OK"

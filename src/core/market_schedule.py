@@ -12,12 +12,17 @@ def is_market_open(asset_category: str) -> bool:
     Mengembalikan True jika market sedang aktif (Sesi 1 atau Sesi 2).
     """
     now = datetime.now(JAKARTA_TZ)
+    hour = now.hour
+    minute = now.minute
     weekday = now.weekday()  # 0=Senin, 4=Jumat, 5=Sabtu, 6=Minggu
 
     # --- 1. LOGIKA FOREX (24/5) ---
     if asset_category == "FOREX":
         # Forex tutup di weekend (Sabtu pagi - Senin pagi waktu Indo)
         if weekday >= 5:
+            return False
+        # High spread hours during rollover
+        if 4 <= hour <= 6:
             return False
         return True
 
@@ -50,3 +55,4 @@ def is_market_open(asset_category: str) -> bool:
 
     # Default Open untuk aset lain (US Stocks, Crypto, dll)
     return True
+    # Default Open untuk aset lain (US Stocks, Crypto, dll)

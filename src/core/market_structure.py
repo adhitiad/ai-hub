@@ -29,7 +29,7 @@ def check_mtf_trend(symbol, current_tf="1h"):
     try:
         # 2. Ambil Data Timeframe Atas
         # Kita butuh data cukup untuk hitung EMA 200
-        df_high = fetch_data(symbol, period="1y", interval=higher_tf)
+        df_high = fetch_data(symbol, period="2y", interval=higher_tf)
 
         if df_high.empty:
             return "NEUTRAL", "MTF Data Empty"

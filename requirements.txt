@@ -22,3 +22,8 @@ email-validator
 black
 chromadb
 sentence-transformers
+scikit-learn
+feedparser
+nltk
+textblob
+pyt

@@ -52,7 +52,7 @@ async def train_weekly_models_async():
         for symbol in items:
             try:
                 # 1. Fetch Data Market
-                df = fetch_data(symbol, period="max", interval="1h")
+                df = fetch_data(symbol, period="2y", interval="1h")
                 if df.empty:
                     continue
 

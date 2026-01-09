@@ -45,7 +45,7 @@ async def train_model(asset):
 
     try:
         # 2. Fetch Data (2 tahun)
-        df = fetch_data(symbol, period="2y")
+        df = fetch_data(symbol, period="2y", interval="1h")
         if df.empty:
             print(f"⚠️ Skipping {symbol}: No Data found.")
             return

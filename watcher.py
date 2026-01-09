@@ -1,4 +1,4 @@
-import asyncio
+import asyncio  # Pastikan ada
 from datetime import datetime
 
 import pandas as pd
@@ -8,6 +8,28 @@ import yfinance as yf
 from src.core.database import alerts_collection, signals_collection
 from src.core.logger import logger
 from src.core.news_collector import analyze_news_sentiment, fetch_market_news
+
+# CONFIG BIAYA (Simulasi Real Market)
+SPREAD_PIPS = 2  # Spread rata-rata (Forex)
+COMMISSION_PCT = 0.1  # Komisi Saham (0.1% per transaksi)
+COMMISSION_FX = 7.0  # Komisi Forex ($7 per lot round turn)
+
+
+# Helper agar yfinance berjalan di thread terpisah (Non-blocking)
+async def fetch_live_price(symbol):
+    def _fetch():
+        try:
+            ticker = yf.Ticker(symbol)
+            # Fast fetch 1 hari terakhir, 1 menit interval (lebih ringan)
+            df = ticker.history(period="1d", interval="1m")
+            if df.empty:
+                return None
+            return df.iloc[-1]
+        except:
+            return None
+
+    return await asyncio.to_thread(_fetch)
+
 
 # HAPUS: import requests_cache
 
@@ -23,7 +45,7 @@ async def check_positions():
     logger.info("👀 Watcher Loop Started...")
 
     # 1. Ambil semua sinyal yang statusnya masih OPEN
-    cursor = signals_collection.find({"status": "OPEN"})
+    cursor = signals_collection.find({"status": {"$in": ["OPEN", "PENDING"]}})
     active_signals = await cursor.to_list(length=1000)
 
     if not active_signals:
@@ -34,78 +56,113 @@ async def check_positions():
     for sig in active_signals:
         symbol = sig["symbol"]
 
-        try:
-            # 2. Ambil Harga Real-time (1 Menit terakhir)
-            ticker = yf.Ticker(symbol)
+        # --- PERBAIKAN: Gunakan Async Fetch ---
+        curr = await fetch_live_price(symbol)
 
-            # Ambil history 1 tahun, interval 1 jam
-            df = ticker.history(period="1y", interval="1h")
+        if curr is None:
+            continue
 
-            if df.empty:
-                continue
+        current_price = curr["Close"]
+        high_price = curr["High"]
+        low_price = curr["Low"]
 
-            # Ambil candle terakhir
-            curr = df.iloc[-1]
-            current_price = curr["Close"]
-            high_price = curr["High"]
-            low_price = curr["Low"]
+        # --- LOGIKA A: HANDLE PENDING ORDER (LIMIT/STOP) ---
+        if sig["status"] == "PENDING":
+            entry_price = sig["price"]  # Harga Limit yang diinginkan
+            action = sig["action"]  # BUY LIMIT / SELL LIMIT
 
-            status = None
-            pips = 0
+            triggered = False
 
-            # 3. Logika Cek SL/TP
-            if sig["action"] == "BUY":
-                if low_price <= sig["sl"]:
-                    status = "LOSS"
-                    exit_price = sig["sl"]
-                    pips = exit_price - sig["entry_price"]
-                elif high_price >= sig["tp"]:
-                    status = "WIN"
+            # Cek apakah harga pasar sudah menjemput order limit kita
+            if "BUY" in action and low_price <= entry_price:
+                triggered = True
+            elif "SELL" in action and high_price >= entry_price:
+                triggered = True
+
+            if triggered:
+                # Update jadi OPEN (Aktif)
+                await signals_collection.update_one(
+                    {"_id": sig["_id"]},
+                    {
+                        "$set": {
+                            "status": "OPEN",
+                            "opened_at": datetime.utcnow(),
+                            "fill_price": entry_price,  # Harga eksekusi
+                        }
+                    },
+                )
+                logger.info(f"✅ ORDER FILLED: {symbol} at {entry_price}")
+                # Opsional: Kirim Notif Telegram "Order Filled"
+
+            continue  # Lanjut ke signal berikutnya, jangan cek TP/SL dulu
+
+        # --- LOGIKA B: HANDLE OPEN POSITIONS (TP/SL Check) ---
+        # Hitung PnL Floating dengan BIAYA (Spread/Komisi)
+
+        entry_price = sig.get("fill_price", sig["price"])
+        lot_size = sig.get("lot_size_num", 0.01)
+        asset_type = sig.get("asset_type", "forex")
+
+        pnl_gross = 0
+        if "BUY" in sig["action"]:
+            pnl_gross = current_price - entry_price
+        else:  # SELL
+            pnl_gross = entry_price - current_price
+
+        # Konversi ke USD/IDR Value
+        if asset_type == "stock_indo":
+            # Saham: (Selisih * Lot * 100) - Komisi
+            val_gross = pnl_gross * lot_size * 100
+            commission = (entry_price * lot_size * 100) * (COMMISSION_PCT / 100)
+            pnl_net = val_gross - (commission * 2)  # Komisi Beli + Jual
+        else:
+            # Forex: (Selisih / PipScale) * (Lot * ContractSize) - Komisi - Spread
+            # Simplifikasi estimasi USD
+            pip_val = 10  # Standard Lot ($10/pip)
+            pnl_pips = pnl_gross * 10000  # Asumsi pair 4 digit
+            pnl_net = (pnl_pips * lot_size * 10) - (COMMISSION_FX * lot_size)
+
+            # Cek TP / SL
+            tp_hit = False
+            sl_hit = False
+            exit_price = current_price
+            exit_reason = ""
+
+            if "BUY" in sig["action"]:
+                if high_price >= sig["tp"]:
+                    tp_hit = True
                     exit_price = sig["tp"]
-                    pips = exit_price - sig["entry_price"]
-
-            elif sig["action"] == "SELL":
-                if high_price >= sig["sl"]:
-                    status = "LOSS"
+                    exit_reason = "TP Hit"
+                elif low_price <= sig["sl"]:
+                    sl_hit = True
                     exit_price = sig["sl"]
-                    pips = sig["entry_price"] - exit_price
-                elif low_price <= sig["tp"]:
-                    status = "WIN"
+                    exit_reason = "SL Hit"
+            else:  # SELL
+                if low_price <= sig["tp"]:
+                    tp_hit = True
                     exit_price = sig["tp"]
-                    pips = sig["entry_price"] - exit_price
+                    exit_reason = "TP Hit"
+                elif high_price >= sig["sl"]:
+                    sl_hit = True
+                    exit_price = sig["sl"]
+                    exit_reason = "SL Hit"
 
-            # 4. Jika Status Berubah (Kena TP/SL), Update MongoDB
-            if status:
-                # Cek berita penyebab pergerakan
-                news_items = fetch_market_news(symbol)
-                sentiment_score, reason = analyze_news_sentiment(symbol, news_items)
+            if tp_hit or sl_hit:
+                final_status = "WIN" if pnl_net > 0 else "LOSS"
 
                 await signals_collection.update_one(
                     {"_id": sig["_id"]},
                     {
                         "$set": {
-                            "status": status,
+                            "status": final_status,
+                            "closed_at": datetime.utcnow(),
                             "exit_price": exit_price,
-                            "pips": round(pips, 5),
-                            "closed_at": datetime.now(),  # <--- PERBAIKAN DISINI (tambah kurung)
-                            "news_context": {
-                                "sentiment_score": sentiment_score,
-                                "narrative": reason,
-                                "headlines": [n["title"] for n in news_items],
-                            },
+                            "exit_reason": exit_reason,
+                            "pnl": pnl_net,  # Simpan Net PnL (Realistis)
                         }
                     },
                 )
-
-                log_msg = f"🔔 CLOSED {status}: {symbol} | PnL: {pips} | News: {reason} ({sentiment_score})"
-                if status == "WIN":
-                    logger.info(f"✅ {log_msg}")
-                else:
-                    logger.warning(f"❌ {log_msg}")
-
-        except Exception as e:
-            logger.error(f"Error checking {symbol}: {e}")
-            pass
+                logger.info(f"🏁 TRADE CLOSED {symbol}: {final_status} ({pnl_net:.2f})")
 
 
 async def check_alerts(df, symbol):

@@ -10,13 +10,13 @@ router = APIRouter(prefix="/market", tags=["Market Data & Charts"])
 
 @router.get("/chart/{symbol}")
 def get_advanced_chart_data(
-    symbol: str, timeframe: str = "1d", user: dict = Depends(get_current_user)
+    symbol: str, timeframe: str = "1h", user: dict = Depends(get_current_user)
 ):
     """
     Return OHLCV + Indicators + Bandar Line untuk charting frontend (TradingView/Lightweight Charts).
     """
     period_map = {"1d": "1y", "1h": "1mo", "15m": "5d"}
-    period = period_map.get(timeframe, "1y")
+    period = period_map.get(timeframe, "2y")
 
     try:
         df = fetch_data(symbol, period=period, interval=timeframe)

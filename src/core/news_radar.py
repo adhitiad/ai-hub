@@ -5,6 +5,9 @@ from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 
+from src.core.logger import logger
+from src.core.news_collector import analyze_sentiment_vader, get_google_news_rss
+
 # Setup Logger
 logger = logging.getLogger("backend")
 
@@ -147,6 +150,34 @@ class NewsRadar:
         else:
             logger.warning("No new data found, using cached data.")
             return self._cache_data[:limit] if self._cache_data else []
+
+    def check_global_panic(self):
+        """
+        Mengecek apakah ada kepanikan global di berita.
+        Menggunakan keyword sensitif di Google News.
+        """
+        panic_keywords = [
+            "Market Crash",
+            "Recession",
+            "War",
+            "Inflation Spike",
+            "Pandemic",
+        ]
+
+        # Search query gabungan
+        query = "OR".join(panic_keywords)
+        news = get_google_news_rss(query, asset_type="forex")  # Pakai mode global (US)
+
+        negative_count = 0
+        for n in news:
+            if analyze_sentiment_vader(n["title"]) < -0.3:  # Sangat negatif
+                negative_count += 1
+
+        # Jika 3 dari 5 berita teratas sangat negatif tentang "Crash/War"
+        if negative_count >= 3:
+            return True, "🚨 GLOBAL PANIC NEWS DETECTED"
+
+        return False, "Stable"
 
 
 # Singleton Instance

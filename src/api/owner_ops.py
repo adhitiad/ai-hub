@@ -1,9 +1,10 @@
 import ast
 import os
 import shutil
+from pathlib import Path
+from typing import Any, Dict, List
 
 import black
-import psutil
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -14,13 +15,16 @@ from src.core.logger import logging
 from src.core.signal_bus import signal_bus
 
 router = APIRouter(prefix="/owner", tags=["Owner"])
-BASE_DIR = os.getcwd()
+BASE_DIR = Path.cwd()  # Root folder proyek
 # Direktori yang BOLEH diedit (Whitelist) agar Owner tidak salah hapus file Windows/Linux
 ALLOWED_DIRS = ["core", "api", "models", "logs"]
-BASE_DIR = os.getcwd()  # Root folder proyek
 
 
 # --- Model Data ---
+class FileReadModel(BaseModel):
+    path: str
+
+
 class FileWriteModel(BaseModel):
     path: str
     content: str
@@ -31,14 +35,37 @@ class FileModel(BaseModel):
     content: str = ""
 
 
-def verify_owner(user: dict = Depends(get_current_user)):
+def validate_safe_path(user_path: str) -> Path:
+    """
+    Memastikan user tidak mengakses file di luar folder project.
+    """
+    base = BASE_DIR.resolve()
+    target = (base / user_path).resolve()
+
+    # Cek apakah target path dimulai dengan base path project
+    if not str(target).startswith(str(base)):
+        raise HTTPException(403, "Access Denied: Path traversal detected.")
+
+    # Whitelist folder tambahan
+    allowed_prefixes = [base / d for d in ALLOWED_DIRS]
+    is_allowed = any(str(target).startswith(str(p)) for p in allowed_prefixes)
+
+    if not is_allowed and target != base:  # Izinkan root file tertentu jika perlu
+        # Tambahan logika strict jika mau:
+        # raise HTTPException(403, "Access to this folder is restricted.")
+        pass
+
+    return target
+
+
+def verify_owner(user: dict = Depends(get_current_user)) -> dict:
     if not check_permission(user["role"], UserRole.OWNER):
         raise HTTPException(403, "OWNER ONLY")
     return user
 
 
 @router.get("/files/tree")
-def get_file_tree(user: dict = Depends(verify_owner)):
+def get_file_tree(user: dict = Depends(verify_owner)) -> Dict[str, Dict[str, Any]]:
     """Mengambil struktur folder proyek untuk ditampilkan di Sidebar Frontend"""
     file_tree = {}
 
@@ -61,25 +88,19 @@ def get_file_tree(user: dict = Depends(verify_owner)):
 
 
 @router.post("/files/read")
-def read_file_content(path_data: dict, user: dict = Depends(verify_owner)):
+def read_file_content(
+    data: FileReadModel, user: dict = Depends(verify_owner)
+) -> Dict[str, str]:
     """Membaca isi file kodingan"""
-    file_path = path_data.get("path")
+    safe_path = validate_safe_path(data.path)
 
-    if not file_path:
-        raise HTTPException(status_code=400, detail="Path is required.")
-
-    # Security Check: Prevent Directory Traversal (../..)
-    safe_path = os.path.abspath(os.path.join(BASE_DIR, file_path))
-    if not safe_path.startswith(BASE_DIR):
-        raise HTTPException(status_code=403, detail="Access denied: Path unsafe.")
-
-    if not os.path.exists(safe_path):
+    if not safe_path.exists():
         raise HTTPException(status_code=404, detail="File not found.")
 
     try:
-        with open(safe_path, "r", encoding="utf-8") as f:
+        with safe_path.open("r", encoding="utf-8") as f:
             content = f.read()
-        return {"path": file_path, "content": content}
+        return {"path": str(safe_path.relative_to(BASE_DIR)), "content": content}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -94,16 +115,16 @@ def read_file_content(path_data: dict, user: dict = Depends(verify_owner)):
 
 
 @router.get("/logs/stream")
-def stream_log(user=Depends(verify_owner)):
-    log_path = "logs/app.log"
+def stream_log(user: dict = Depends(verify_owner)) -> Dict[str, List[str]]:
+    log_path = BASE_DIR / "logs" / "app.log"
 
-    if not os.path.exists(log_path):
+    if not log_path.exists():
         return {"logs": ["Log file not yet created."]}
 
     # PERBAIKAN: Tambahkan encoding="utf-8" dan errors="replace"
-    # errors="replace" berguna agar jika ada karakter aneh, tidak bikin server crash (diganti tanda tanya)
+    # errors="replace" berguna agar jika ada karakter aneh, tidak bikin server crash (diganti tanda tanda tanya)
     try:
-        with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+        with log_path.open("r", encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
             # Ambil 50 baris terakhir
             return {"logs": lines[-50:]}
@@ -126,9 +147,9 @@ def trigger_manual_training(
     """
     from train_all import run_mass_training  # Import fungsi training
 
-    def training_wrapper():
+    async def training_wrapper():
         logging.info(f"🦾 MANUAL TRAINING TRIGGERED BY {user['email']}")
-        run_mass_training()
+        await run_mass_training()
         logging.info("✅ MANUAL TRAINING FINISHED")
 
     background_tasks.add_task(training_wrapper)
@@ -209,7 +230,7 @@ def save_file(data: FileWriteModel, user: dict = Depends(verify_owner)):
     Menyimpan file TAPI menolak jika Syntax Error.
     Mencegah Server Crash (Error 500).
     """
-    path = os.path.abspath(os.path.join(BASE_DIR, data.path))
+    safe_path = validate_safe_path(data.path)
 
     # 1. Safety Check: Cek Syntax Python sebelum save
     if data.path.endswith(".py"):
@@ -221,10 +242,10 @@ def save_file(data: FileWriteModel, user: dict = Depends(verify_owner)):
             )
 
     # 2. Backup & Save
-    if os.path.exists(path):
-        shutil.copy(path, path + ".bak")
+    if safe_path.exists():
+        shutil.copy(safe_path, safe_path.with_suffix(".bak"))
 
-    with open(path, "w", encoding="utf-8") as f:
+    with safe_path.open("w", encoding="utf-8") as f:
         f.write(data.content)
 
     return {"status": "saved"}

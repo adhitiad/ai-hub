@@ -84,8 +84,8 @@ async def process_single(asset_info):
     # 5. Eksekusi Auto-Trading (Masuk Database Signals)
     try:
         # Kita gunakan data yang sudah diambil di awal (tidak perlu fetch ulang)
-
-        if data["Action"] in ["BUY", "SELL"]:
+        action_upper = data["Action"].upper()
+        if "BUY" in action_upper or "SELL" in action_upper:
             # Cek apakah sudah ada posisi OPEN yang sama
             existing_position = await signals_collection.find_one(
                 {"symbol": symbol, "status": "OPEN"}

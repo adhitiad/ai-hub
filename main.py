@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime
 
+import psutil
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
@@ -209,3 +210,13 @@ async def websocket_endpoint(websocket: WebSocket, symbol: str):
 @app.get("/dashboard/all")
 def get_dashboard():
     return signal_bus.get_all_signals()
+
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "cpu_usage": f"{psutil.cpu_percent()}%",
+        "ram_usage": f"{psutil.virtual_memory().percent}%",
+        "timestamp": datetime.utcnow(),
+    }
