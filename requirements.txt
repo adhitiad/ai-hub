@@ -26,4 +26,4 @@ scikit-learn
 feedparser
 nltk
 textblob
-pyt
+ccxt

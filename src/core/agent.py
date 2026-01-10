@@ -1,5 +1,3 @@
-# src/core/agent.py
-
 import asyncio
 import glob
 import os
@@ -8,25 +6,20 @@ import numpy as np
 import pandas as pd
 from stable_baselines3 import PPO
 
-# --- 2. ADVANCED ANALYSIS IMPORTS ---
+# --- 2. ADVANCED ANALYSIS ---
 from src.core.bandarmology import analyze_bandar_flow
 
-# --- 1. CORE IMPORTS ---
+# --- 1. DATA & ASSETS ---
 from src.core.config_assets import get_asset_info
-from src.core.data_loader import fetch_data
+from src.core.data_loader import fetch_data_async  # [UPDATE] Async Loader
 from src.core.market_structure import check_mtf_trend, detect_insider_volume
-from src.core.money_management import (  # [OK] Wajib ada agar Unit Test @patch('src.core.agent.calculate_lot_size') berhasil
-    calculate_kelly_lot,
-    calculate_lot_size,
-    check_correlation_risk,
-)
+from src.core.money_management import calculate_kelly_lot, check_correlation_risk
 from src.core.pattern_recognizer import detect_chart_patterns
 
 # --- 3. RISK & MONEY MANAGEMENT ---
 from src.core.risk_manager import check_circuit_breaker
-
-# [OK] Vector DB Import
 from src.core.vector_db import recall_similar_events
+from src.core.whale_crypto import analyze_crypto_whales  # [UPDATE] Whale Detector
 
 # --- 4. OPTIONAL MODULES (ML & News) ---
 try:
@@ -38,28 +31,37 @@ except ImportError:
 MODEL_DIR = "models"
 
 
-async def get_detailed_signal(symbol, asset_info, custom_balance=None):
+async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
     """
-    ULTIMATE SIGNAL GENERATOR (Async Version)
+    ULTIMATE SIGNAL GENERATOR (Async Version + Crypto Support)
     """
     try:
         # --- A. SETUP & VALIDATION ---
         if not asset_info:
             info = get_asset_info(symbol)
             if not info:
-                return {
-                    "Symbol": symbol,
-                    "Action": "HOLD",
-                    "Reason": "Asset not config.",
+                # Fallback jika config tidak ditemukan
+                info = {
+                    "symbol": symbol,
+                    "type": "crypto" if "/" in symbol else "forex",
                 }
         else:
             info = asset_info
 
+        # Deteksi Tipe Aset
         asset_type = info.get("type", "forex")
         category = info.get("category", "forex").lower()
-        safe_symbol = symbol.replace("=", "").replace("^", "")
+
+        # Override jika simbol mengandung '/' (Ciri khas Crypto di CCXT)
+        is_crypto = asset_type == "crypto" or "/" in symbol
+        if is_crypto:
+            asset_type = "crypto"
+            category = "crypto"
+
+        safe_symbol = symbol.replace("=", "").replace("^", "").replace("/", "")
 
         # --- B. GLOBAL RISK CHECKS ---
+        # Pastikan fungsi-fungsi risk manager ini async atau dipanggil dengan benar
         can_trade, reject_reason = await check_circuit_breaker()
         if not can_trade:
             return {
@@ -72,25 +74,40 @@ async def get_detailed_signal(symbol, asset_info, custom_balance=None):
         if not is_uncorrelated:
             return {"Symbol": symbol, "Action": "HOLD", "Reason": f"Risk: {corr_msg}"}
 
-        # --- C. LOAD MODEL & DATA ---
+        # --- C. FETCH DATA (ASYNC) ---
+        # Menggunakan loader baru yang support CCXT & YFinance secara async
+        df = await fetch_data_async(symbol, period="2y", interval="1h")
+
+        if df.empty:
+            return {"Symbol": symbol, "Action": "HOLD", "Reason": "No Data Fetched"}
+
+        # --- D. LOAD MODEL ---
+        # Mencari model yang sesuai kategori (forex/stock/crypto)
         base_dir = f"{MODEL_DIR}/{category}"
         pattern = f"{base_dir}/{safe_symbol}*.zip"
         files = glob.glob(pattern)
-        files.sort(reverse=True)
+
+        # Jika model spesifik tidak ada, coba cari model generic
+        if not files:
+            pattern = f"{base_dir}/GENERIC*.zip"
+            files = glob.glob(pattern)
 
         if not files:
             return {"Symbol": symbol, "Action": "HOLD", "Reason": "No Model Trained"}
 
-        df = fetch_data(symbol, period="2y", interval="1h")
-        if df.empty:
-            return {"Symbol": symbol, "Action": "HOLD", "Reason": "No Data"}
+        files.sort(reverse=True)  # Ambil yang terbaru
 
-        model = PPO.load(files[0])
+        # Load Model (Jalankan di thread terpisah agar tidak blocking)
+        model = await asyncio.to_thread(PPO.load, files[0])
 
-        # --- D. AI PREDICTION ---
+        # --- E. AI PREDICTION ---
         last_row = df.iloc[-1]
-        obs = np.append(last_row.values, [0])
-        action, _ = model.predict(obs)
+
+        # Pastikan input shape sesuai (sesuaikan dengan environment training)
+        obs = np.append(np.array(last_row.values), [0])
+
+        # Predict (Jalankan di thread terpisah)
+        action, _ = await asyncio.to_thread(model.predict, obs)
 
         action_map = {0: "HOLD", 1: "BUY", 2: "SELL"}
         base_action = action_map[int(action)]
@@ -98,10 +115,9 @@ async def get_detailed_signal(symbol, asset_info, custom_balance=None):
         confidence = 70.0
         reasons = []
 
-        # --- E. ADVANCED ANALYSIS INTEGRATION ---
+        # --- F. ADVANCED ANALYSIS INTEGRATION ---
 
         # 1. VECTOR DB RECALL (History Check)
-        # Mengecek apakah pola chart ini pernah terjadi sebelumnya dan hasilnya profit/loss
         history_outcome = recall_similar_events(df)
         if history_outcome == "WIN":
             confidence += 5
@@ -127,20 +143,53 @@ async def get_detailed_signal(symbol, asset_info, custom_balance=None):
                 confidence -= 20
                 reasons.append("MTF Trend: Bullish ⚠️")
 
-        # 3. INSIDER VOLUME
+        # 3. SPECIALIZED FLOW ANALYSIS (BANDAR vs WHALE)
+        whale_data_info = None
+
+        if is_crypto:
+            # --- LOGIKA PAUS CRYPTO ---
+            whale_data = await analyze_crypto_whales(symbol)
+            whale_data_info = whale_data
+
+            w_action = whale_data.get("action")
+            w_score = whale_data.get("score", 0)
+
+            if w_action == "BUY":
+                reasons.append(whale_data["reason"])
+                if base_action == "BUY":
+                    confidence += 15
+                elif base_action == "SELL":
+                    confidence -= 25
+            elif w_action == "SELL":
+                reasons.append(whale_data["reason"])
+                if base_action == "SELL":
+                    confidence += 15
+                elif base_action == "BUY":
+                    confidence -= 25
+
+            # Ekstra Logika berdasarkan Score
+            if w_score > 20 and base_action == "SELL":
+                confidence += 10
+                reasons.append("Whale Activity confirms SELL 📉")
+            elif w_score < -20 and base_action == "BUY":
+                confidence += 10
+                reasons.append("Whale Activity confirms BUY 📈")
+
+        elif asset_type == "stock_indo":
+            # --- LOGIKA BANDARMOLOGY SAHAM ---
+            bandar_result = analyze_bandar_flow(df)
+            flow_status = bandar_result["status"]
+            if base_action == "BUY" and "ACCUM" in flow_status:
+                confidence += 15
+                reasons.append("Bandar Accumulation 💰")
+            elif base_action == "SELL" and "DISTRIB" in flow_status:
+                confidence += 15
+                reasons.append("Bandar Distribution 📉")
+
+        # 4. INSIDER VOLUME (Umum)
         if detect_insider_volume(df):
             confidence += 10
             reasons.append("Insider Volume Spike 🐳")
-
-        # 4. BANDARMOLOGY
-        bandar_result = analyze_bandar_flow(df)
-        flow_status = bandar_result["status"]
-        if base_action == "BUY" and "ACCUM" in flow_status:
-            confidence += 15
-            reasons.append("Bandar Accumulation 💰")
-        elif base_action == "SELL" and "DISTRIB" in flow_status:
-            confidence += 15
-            reasons.append("Bandar Distribution 📉")
 
         # 5. CHART PATTERNS
         pattern_score, detected_patterns = detect_chart_patterns(df)
@@ -148,7 +197,7 @@ async def get_detailed_signal(symbol, asset_info, custom_balance=None):
             reasons.append(f"Patterns: {', '.join(detected_patterns)}")
             confidence += pattern_score
 
-        # 6. ML FEATURES
+        # 6. ML FEATURES (Random Forest)
         if "ml_analyzer" in globals():
             regime = ml_analyzer.detect_market_regime(df)
             if regime == 2:
@@ -172,7 +221,7 @@ async def get_detailed_signal(symbol, asset_info, custom_balance=None):
                 ):
                     confidence -= 15
 
-        # --- F. FINAL DECISION ---
+        # --- G. FINAL DECISION ---
         confidence = max(10.0, min(99.9, confidence))
 
         if confidence < 50 or base_action == "HOLD":
@@ -186,22 +235,28 @@ async def get_detailed_signal(symbol, asset_info, custom_balance=None):
                 ),
             }
 
-        # --- G. MONEY MANAGEMENT & ORDER ---
+        # --- H. MONEY MANAGEMENT & ORDER ---
         current_price = last_row["Close"]
         atr = last_row.get("ATR_14", current_price * 0.01)
 
-        sl_mult = 1.5 if asset_type == "forex" else 2.0
+        # Dynamic Risk Multiplier
+        sl_mult = 2.0  # Default Stock
+        if asset_type == "forex":
+            sl_mult = 1.5
+        elif asset_type == "crypto":
+            sl_mult = 3.0  # Crypto lebih volatile
+
         sl_pips = atr * sl_mult
-        tp_pips = sl_pips * 2.0
+        tp_pips = sl_pips * 2.0  # Risk Reward 1:2
 
         entry_price = current_price
         order_type = "MARKET"
 
-        # Pullback Logic for Forex
+        # Pullback Logic
         ema_20 = last_row.get("SMA_20", current_price)
         dist_to_ema = abs(current_price - ema_20)
 
-        if asset_type == "forex" and dist_to_ema > (atr * 0.8):
+        if dist_to_ema > (atr * 0.8):
             order_type = "LIMIT"
             entry_price = (current_price + ema_20) / 2
             reasons.append("Pullback Entry")
@@ -215,25 +270,30 @@ async def get_detailed_signal(symbol, asset_info, custom_balance=None):
             tp = entry_price - tp_pips
             final_action = f"SELL {order_type}" if order_type == "LIMIT" else "SELL"
 
-        # Money Management (Kelly)
+        # Hitung Lot Size (Kelly Criterion)
         user_balance = 1000
         if custom_balance:
-            user_balance = custom_balance.get(
-                "stock" if asset_type == "stock_indo" else "forex", 1000
-            )
+            if asset_type == "crypto":
+                user_balance = custom_balance.get("crypto", 1000)
+            elif asset_type == "stock_indo":
+                user_balance = custom_balance.get("stock", 1000)
+            else:
+                user_balance = custom_balance.get("forex", 1000)
 
         sl_dist = abs(entry_price - sl)
         win_prob = confidence / 100.0
 
-        # Gunakan Kelly Lot
         lot_size, mm_note = calculate_kelly_lot(
             user_balance, win_prob, 2.0, sl_dist, info
         )
         reasons.append(f"MM: {mm_note}")
 
+        # Formatting Output
         decimals = 0 if asset_type == "stock_indo" else 5
+        if asset_type == "crypto":
+            decimals = 2 if current_price > 1 else 6
 
-        return {
+        result = {
             "Symbol": symbol,
             "Action": final_action,
             "Price": round(entry_price, decimals),
@@ -245,5 +305,19 @@ async def get_detailed_signal(symbol, asset_info, custom_balance=None):
             "AI_Analysis": " | ".join(reasons),
         }
 
+        # Tambahkan Info Whale khusus Crypto untuk Debug/UI
+        if is_crypto and whale_data_info:
+            result["Whale_Activity"] = (
+                f"{whale_data_info.get('score', 0):.1f}% ({whale_data_info.get('action')})"
+            )
+
+        return result
+
     except Exception as e:
-        return {"error": f"Agent Error: {str(e)}"}
+        return {"error": f"Agent Error ({symbol}): {str(e)}"}
+
+
+# Test Runner (Optional)
+def test_agent():
+    # Test cases can be added here
+    pass

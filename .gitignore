@@ -40,6 +40,10 @@ next-env.d.ts
 models/**/*.zip
 models/**/*.pt
 models/**/*.pth
+models/**/*.bin
+models/**/*.onnx
+models/**/*.joblib
+models/*.joblib
 yfinance.cache
 signal_snapshot.json
 

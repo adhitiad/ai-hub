@@ -2541,7 +2541,6 @@ ID	77.393B
 
 async def seed_database():
     print("🗑️  Membersihkan data aset lama...")
-    await assets_collection.delete_many({})
 
     lines = raw_data.strip().split("\n")
     new_assets = []

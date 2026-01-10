@@ -2,12 +2,8 @@ import asyncio
 from datetime import datetime
 
 from src.core.agent import get_detailed_signal
-
-# Import database assets & signals
 from src.core.database import assets_collection, signals_collection, users_collection
 from src.core.logger import logger
-
-# Import Logika Jadwal Baru
 from src.core.market_schedule import is_market_open
 from src.core.notifier import format_signal_message, send_telegram_message
 from src.core.signal_bus import signal_bus
@@ -18,19 +14,23 @@ async def process_single(asset_info):
     symbol = asset_info["symbol"]
     category = asset_info.get("category", "UNKNOWN")
 
-    # 1. Generate Signal
-    # Ini adalah proses berat (AI/Data Fetching), kita tunggu hasilnya dulu
-    data = await asyncio.to_thread(get_detailed_signal, symbol, asset_info)
+    try:
+        # --- PERBAIKAN DI SINI ---
+        # Jangan gunakan asyncio.to_thread untuk fungsi async!
+        # Panggil langsung dengan await.
+        data = await get_detailed_signal(symbol, asset_info)
 
-    # --- PERBAIKAN: VALIDASI DATA ---
-    # Jika data error atau tidak lengkap, hentikan proses untuk simbol ini
-    if not data or "error" in data:
-        # Uncomment baris bawah jika ingin melihat log error per aset (bisa spammy)
-        logger.warning(f"⚠️ Skip {symbol}: {data.get('error', 'Unknown Error')}")
+    except Exception as e:
+        logger.error(f"⚠️ Error generating signal for {symbol}: {e}")
+        return False
+
+    # --- Validasi Data ---
+    # Pastikan data tidak None dan bukan error dict
+    if not data or isinstance(data, dict) and "error" in data:
+        # logger.warning(f"⚠️ Skip {symbol}: {data.get('error', 'Unknown Error')}")
         return False
 
     if "Action" not in data:
-        logger.warning(f"⚠️ Skip {symbol}: Invalid signal format (Missing 'Action')")
         return False
     # -------------------------------
 
@@ -51,7 +51,6 @@ async def process_single(asset_info):
     if is_new_signal:
         formatted_msg = format_signal_message(data)
 
-        # Ambil user yang berhak menerima notifikasi
         cursor = users_collection.find(
             {
                 "telegram_chat_id": {"$exists": True},
@@ -62,13 +61,15 @@ async def process_single(asset_info):
 
         async for user in cursor:
             try:
-                await send_telegram_message(user["telegram_chat_id"], formatted_msg)
+                # Fire and forget (gunakan create_task agar tidak blocking loop ini)
+                asyncio.create_task(
+                    send_telegram_message(user["telegram_chat_id"], formatted_msg)
+                )
             except Exception as e:
                 logger.error(f"Failed to send telegram to {user.get('email')}: {e}")
 
     # 4. Cek Jadwal Pasar
     if not is_market_open(category):
-        # Update status khusus jika pasar tutup
         signal_bus.update_signal(
             symbol,
             {
@@ -83,7 +84,6 @@ async def process_single(asset_info):
 
     # 5. Eksekusi Auto-Trading (Masuk Database Signals)
     try:
-        # Kita gunakan data yang sudah diambil di awal (tidak perlu fetch ulang)
         action_upper = data["Action"].upper()
         if "BUY" in action_upper or "SELL" in action_upper:
             # Cek apakah sudah ada posisi OPEN yang sama
@@ -106,14 +106,14 @@ async def process_single(asset_info):
                 await signals_collection.insert_one(new_signal)
                 logger.info(f"💾 SAVED DB: {symbol} {data['Action']}")
 
-                # Trigger Notif Channel Telegram Umum (Bot Broadcast)
+                # Trigger Notif Channel Telegram Umum
                 if telegram_bot:
                     asyncio.create_task(telegram_bot.broadcast_signal(data))
 
         return True
 
     except Exception as e:
-        logger.error(f"Worker Error {symbol}: {e}")
+        logger.error(f"Worker DB Save Error {symbol}: {e}")
         return False
 
 
@@ -135,10 +135,11 @@ async def signal_producer_task():
             for asset in assets:
                 tasks.append(process_single(asset))
 
-            # 3. Jalankan parallel (return_exceptions=True agar 1 error tidak mematikan semua)
+            # 3. Jalankan parallel dengan error handling
+            # return_exceptions=True mencegah satu error menghentikan loop
             await asyncio.gather(*tasks, return_exceptions=True)
 
-            # Simpan snapshot data signal bus ke disk/file (opsional)
+            # Simpan snapshot
             signal_bus.save_snapshot()
 
             # Tunggu 60 detik sebelum scan ulang

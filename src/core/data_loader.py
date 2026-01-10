@@ -1,125 +1,137 @@
+import asyncio
 import logging
-import time
 
+import ccxt.async_support as ccxt
 import pandas as pd
 import pandas_ta as ta
 import yfinance as yf
 
 from src.core.logger import logger
 
+# Daftar Exchange yang akan dicek (Urutan Prioritas)
+# Gate & MEXC biasanya punya banyak koin micin/baru
+EXCHANGE_LIST = ["binance", "bybit", "gateio", "mexc", "okx", "kucoin"]
 
-def fetch_data(symbol="EURUSD=X", period="2y", interval="1h", retries=3):
+
+async def fetch_crypto_ohlcv(symbol, timeframe="1h", limit=1000):
     """
-    Mengambil data menggunakan yf.Ticker dengan penanganan Kolom Ganda (Duplicate Columns).
+    Multi-Exchange Fetcher: Mencari data di berbagai exchange secara berurutan.
     """
-    for attempt in range(retries):
+    for ex_name in EXCHANGE_LIST:
+        exchange_class = getattr(ccxt, ex_name)
+        # enableRateLimit wajib agar tidak kena ban IP
+        exchange = exchange_class({"enableRateLimit": True})
+
         try:
-            # Gunakan Ticker object
-            ticker = yf.Ticker(symbol)
+            # logger.info(f"🔍 Checking {symbol} on {ex_name.upper()}...")
 
-            # Ambil data history
-            df = ticker.history(period=period, interval=interval, auto_adjust=False)
+            # Fetch OHLCV
+            ohlcv = await exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
 
-            # 1. Cek Apakah Data Kosong
-            if df.empty:
-                if period == "2y":
-                    df = ticker.history(
-                        period="max", interval=interval, auto_adjust=False
-                    )
+            if ohlcv and len(ohlcv) > 0:
+                print(f"✅ Found {symbol} on {ex_name.upper()} ({len(ohlcv)} candles)")
 
-                if df.empty:
-                    raise ValueError(f"Data kosong dari YFinance")
-
-            # 2. Pembersihan Kolom & Timezone
-            if df.index.tz is not None:
-                df.index = df.index.tz_localize(None)
-
-            # --- 🛠️ FIX DUPLICATE COLUMN: CLOSE VS ADJ CLOSE ---
-            # Jika ada 'Adj Close', kita pakai itu sebagai acuan harga 'Close' sebenarnya.
-            # TAPI, kita harus hapus kolom 'Close' bawaan dulu agar tidak ada 2 kolom bernama 'Close'.
-            if "Adj Close" in df.columns:
-                df = df.drop(columns=["Close"], errors="ignore")  # Hapus Close lama
-                df = df.rename(
-                    columns={"Adj Close": "Close"}
-                )  # Rename Adj Close jadi Close
-
-            # Rename kolom lain
-            df = df.rename(columns={"Stock Splits": "Splits"})
-
-            # Validasi kolom wajib
-            required = ["Open", "High", "Low", "Close", "Volume"]
-            for col in required:
-                if col not in df.columns:
-                    if col == "Volume":
-                        df["Volume"] = 0
-                    else:
-                        raise ValueError(
-                            f"Kolom wajib {col} hilang. Columns: {df.columns}"
-                        )
-
-            # 3. Cek Jumlah Data SEBELUM Indikator
-            if len(df) < 60:
-                raise ValueError(
-                    f"Data mentah kurang ({len(df)} row), butuh min 60 row"
+                # Convert ke DataFrame
+                df = pd.DataFrame(
+                    ohlcv,
+                    columns=["timestamp", "Open", "High", "Low", "Close", "Volume"],
                 )
+                df["Date"] = pd.to_datetime(df["timestamp"], unit="ms")
+                df.set_index("Date", inplace=True)
+                del df["timestamp"]
 
-            # 4. Hitung Indikator
-            df.ta.rsi(length=14, append=True)
-            df.ta.macd(append=True)
-            df.ta.sma(length=20, append=True)
-            df.ta.sma(length=50, append=True)
-            df.ta.atr(length=14, append=True)
-            # --- 🛠️ FIX ATR COLUMN NAME ---
-            # pandas_ta sering menamai kolom ATR sebagai 'ATRr_14' (RMA)
-            if "ATRr_14" in df.columns:
-                df = df.rename(columns={"ATRr_14": "ATR_14"})
+                await exchange.close()
+                return df
 
-            # Debugging (Opsional): Cek kolom apa saja yang ada kalau masih error
-            # logging.info(f"Columns in {symbol}: {df.columns.tolist()}")
+        except Exception:
+            # Ignore error (misal symbol not found), lanjut ke exchange berikutnya
+            pass
+        finally:
+            await exchange.close()
 
-            # 5. Drop NaN
-            df_clean = df.dropna()
+    # Jika sudah cek semua exchange tapi nihil
+    print(f"❌ {symbol} not found on any configured exchanges.")
+    return pd.DataFrame()
 
-            # Pastikan tidak ada kolom duplikat tersisa (Safety Net)
-            df_clean = df_clean.loc[:, ~df_clean.columns.duplicated()]
 
-            # 6. Cek Akhir
-            if df_clean.empty:
-                raise ValueError(f"Data habis (0) setelah dropna.")
+def _fetch_yfinance_sync(symbol, period, interval):
+    """Worker YFinance Synchronous"""
+    try:
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(period=period, interval=interval, auto_adjust=False)
+        if df.empty and period == "2y":
+            df = ticker.history(period="max", interval=interval, auto_adjust=False)
+        return df
+    except Exception as e:
+        logger.error(f"YF Error {symbol}: {e}")
+        return pd.DataFrame()
 
-            return df_clean
 
-        except Exception as e:
-            if attempt < retries - 1:
-                time.sleep(2)
+async def fetch_data_async(symbol, period="2y", interval="1h"):
+    """
+    Smart Data Fetcher (Async): Otomatis pilih YFinance atau CCXT Multi-Exchange.
+    """
+    df = pd.DataFrame()
+
+    # 1. Deteksi Tipe Aset (Crypto pakai CCXT)
+    # Ciri: Ada tanda '/' atau nama mengandung angka (1000PEPE)
+    is_crypto = "/" in symbol
+
+    if is_crypto:
+        # Konversi Period '2y' ke Limit Candle (Estimasi)
+        limit = 2000
+        if period == "1mo":
+            limit = 750
+
+        df = await fetch_crypto_ohlcv(symbol, timeframe=interval, limit=limit)
+    else:
+        # Saham/Forex pakai YFinance
+        df = await asyncio.to_thread(_fetch_yfinance_sync, symbol, period, interval)
+
+    # 2. Validasi & Cleaning Data
+    if df.empty:
+        return df
+
+    if df.index.tz is not None:
+        df.index = df.index.tz_localize(None)
+
+    # Fix Kolom YFinance
+    if "Adj Close" in df.columns:
+        df = df.drop(columns=["Close"], errors="ignore")
+        df = df.rename(columns={"Adj Close": "Close"})
+
+    df = df.rename(columns={"Stock Splits": "Splits"})
+
+    # Validasi Kolom Wajib
+    required = ["Open", "High", "Low", "Close", "Volume"]
+    for col in required:
+        if col not in df.columns:
+            if col == "Volume":
+                df["Volume"] = 0
             else:
-                logger.error(f"❌ GAGAL {symbol}: {e}")
                 return pd.DataFrame()
 
+    # 3. Indikator Teknikal
+    try:
+        df.ta.rsi(length=14, append=True)
+        df.ta.macd(append=True)
+        df.ta.sma(length=20, append=True)
+        df.ta.sma(length=50, append=True)
+        df.ta.atr(length=14, append=True)
 
-def validate_data_quality(df):
-    """
-    Mencegah sampah masuk ke AI.
-    Return: (bool, reason)
-    """
-    # 1. Cek Data Kosong / Sedikit
-    if len(df) < 50:
-        return False, "Not enough data points (<50)"
+        if "ATRr_14" in df.columns:
+            df = df.rename(columns={"ATRr_14": "ATR_14"})
 
-    # 2. Cek Flatline (Harga tidak bergerak sama sekali - Libur/Suspensi)
-    last_5_candles = df["Close"].tail(5)
-    if last_5_candles.nunique() == 1:
-        return False, "Flatline Data (Market Closed/Suspended)"
+        df_clean = df.dropna()
+        df_clean = df_clean.loc[:, ~df_clean.columns.duplicated()]
 
-    # 3. Cek Harga Nol/Negatif (Bug YFinance)
-    if (df["Close"] <= 0).any():
-        return False, "Zero/Negative Prices detected"
+        return df_clean
 
-    # 4. Cek Gap Abnormal (Misal glitch harga naik 500% dalam 1 jam)
-    # Gunakan pct_change
-    returns = df["Close"].pct_change().dropna()
-    max_change = returns.abs().max()
-    if max_change > 0.5:  # 50% change in 1 hour is likely a glitch (except crypto pump)
-        return False, f"Abnormal Spike Detected ({max_change*100:.0f}%)"
+    except Exception as e:
+        logger.error(f"Indicator Error {symbol}: {e}")
+        return pd.DataFrame()
 
-    return True, "OK"
+
+# Wrapper Sync
+def fetch_data(symbol, period="2y", interval="1h"):
+    return asyncio.run(fetch_data_async(symbol, period, interval))
