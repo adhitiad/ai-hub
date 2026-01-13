@@ -40,7 +40,7 @@ MODEL_DIR = "models"
 
 async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
     """
-    ULTIMATE SIGNAL GENERATOR (Async Version + Crypto Support)
+    ULTIMATE SIGNAL GENERATOR (Async Version + Crypto Support + Advanced Analysis + Stock Indo Support)
     """
     try:
         # --- A. SETUP & VALIDATION ---
@@ -50,7 +50,11 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
                 # Fallback jika config tidak ditemukan
                 info = {
                     "symbol": symbol,
-                    "type": "crypto" if "/" in symbol else "forex",
+                    "type": (
+                        "crypto"
+                        if "/" in symbol
+                        else "forex" if ".JK" in symbol else "stock_indo"
+                    ),
                 }
         else:
             info = asset_info
@@ -58,6 +62,11 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         # Deteksi Tipe Aset
         asset_type = info.get("type", "forex")
         category = info.get("category", "forex").lower()
+        # overide stock indo mengandung ".JK"
+        is_stock_indo = asset_type == "stock_indo" and ".JK" in symbol
+        if is_stock_indo:
+            asset_type = "stock_indo"
+            category = "stock_indo"
 
         # Override jika simbol mengandung '/' (Ciri khas Crypto di CCXT)
         is_crypto = asset_type == "crypto" or "/" in symbol
@@ -253,7 +262,9 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
 
         # 7. NEWS SENTIMENT
         if "fetch_market_news" in globals():
-            news_items = fetch_market_news(symbol, asset_type=asset_type)
+            news_items = await asyncio.to_thread(
+                fetch_market_news, symbol, asset_type=asset_type
+            )
             news_score, news_summary = analyze_news_sentiment(symbol, news_items)
             if news_score != 0:
                 sentiment = "Bullish" if news_score > 0 else "Bearish"

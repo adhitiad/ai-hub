@@ -19,8 +19,12 @@ CONCURRENCY_LIMIT = 5
 
 async def process_single(asset_info):
     """Proses sinyal untuk satu aset secara async"""
-    if not risk_manager.can_trade():
-        logger.warning("⚠️ Daily Loss Limit Hit. Trading Paused.")
+    # PERBAIKAN: Tambahkan 'await' dan unpack return value
+    allowed, reason = await risk_manager.can_trade()
+
+    if not allowed:
+        # Kita bisa pakai variable 'reason' agar log lebih jelas
+        logger.warning(f"⚠️ Daily Loss Limit Hit. Trading Paused. Reason: {reason}")
         return False
     symbol = asset_info["symbol"]
     category = asset_info.get("category", "UNKNOWN")

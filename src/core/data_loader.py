@@ -10,7 +10,20 @@ from src.core.logger import logger
 
 # Daftar Exchange yang akan dicek (Urutan Prioritas)
 # Gate & MEXC biasanya punya banyak koin micin/baru
-EXCHANGE_LIST = ["binance", "bybit", "gateio", "mexc", "okx", "kucoin"]
+EXCHANGE_LIST = [
+    "binance",
+    "bybit",
+    "gateio",
+    "mexc",
+    "okx",
+    "kucoin",
+    "bingx",
+    "bit2c",
+    "bitbank",
+    "bitbns",
+    "bitflyer",
+    "bitget",
+]
 
 
 async def fetch_crypto_ohlcv(symbol, timeframe="1h", limit=1000):
@@ -92,8 +105,16 @@ async def fetch_data_async(symbol, period="2y", interval="1h"):
     if df.empty:
         return df
 
-    if df.index.tz is not None:
-        df.index = df.index.tz_localize(None)
+    # Remove timezone information if present
+    try:
+        # Convert index to timezone-naive if it has timezone info
+        if isinstance(df.index, pd.DatetimeIndex) and df.index.tz is not None:
+            df = df.copy()
+            # Create a new timezone-naive DatetimeIndex
+            df.index = pd.to_datetime(df.index).tz_localize(None)
+    except Exception:
+        # Fallback for any errors during timezone conversion
+        pass
 
     # Fix Kolom YFinance
     if "Adj Close" in df.columns:
