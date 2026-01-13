@@ -1,65 +1,90 @@
+import asyncio
 from datetime import datetime
 
-from src.core.database import signals_collection, users_collection
+from src.core.database import signals_collection
 from src.core.logger import logger
 
-# Config Hardcoded (Bisa dipindah ke Database/User Settings nanti)
-MAX_DAILY_LOSS_PERCENT = 0.05  # Max rugi 5% dari saldo per hari
-MAX_CONSECUTIVE_LOSSES = 5  # Stop jika rugi 5x berturut-turut
 
-
-async def check_circuit_breaker(user_balance=1000):
+class RiskManager:
     """
-    Mengecek apakah trading harus dihentikan sementara karena risiko tinggi.
-    Return: (boleh_trading: bool, alasan: str)
+    Penjaga Gawang (Safety Guard).
+    Mencegah bot terus-terusan trading saat performa sedang buruk (Drawdown).
     """
-    today_start = datetime.combine(datetime.utcnow().date(), datetime.min.time())
 
-    # 1. Ambil Trade Hari Ini yang LOSS
-    cursor = signals_collection.find(
-        {"status": "LOSS", "closed_at": {"$gte": today_start}}
-    )
+    def __init__(self):
+        # Config Hardcoded (Bisa dipindah ke .env nanti)
+        self.MAX_DAILY_LOSS_PERCENT = 0.05  # Stop jika rugi 5% dari saldo per hari
+        self.MAX_CONSECUTIVE_LOSSES = 5  # Stop jika rugi 5x berturut-turut
+        self.SYSTEM_BALANCE = 1000  # Asumsi Balance Virtual System ($1000)
 
-    daily_loss_amount = 0
-    loss_count = 0
+    async def can_trade(self) -> tuple[bool, str]:
+        """
+        Public API untuk mengecek apakah boleh trading.
+        Returns: (bool, str) -> (allowed, reason)
+        """
+        allowed, reason = await self._check_circuit_breaker()
+        if not allowed:
+            logger.warning(f"⛔ RISK MANAGER: Trading Halted! Reason: {reason}")
+        return allowed, reason
 
-    # Ambil 10 trade terakhir untuk cek loss streak
-    recent_cursor = (
-        signals_collection.find({"status": {"$in": ["WIN", "LOSS"]}})
-        .sort("closed_at", -1)
-        .limit(10)
-    )
-    recent_trades = await recent_cursor.to_list(length=10)
+    async def _check_circuit_breaker(self):
+        """
+        Logic internal pengecekan batas kerugian.
+        Return: (bool, str) -> (Allowed, Reason)
+        """
+        today_start = datetime.combine(datetime.utcnow().date(), datetime.min.time())
 
-    # Hitung Total Kerugian Hari Ini
-    async for trade in cursor:
-        # PnL biasanya disimpan dalam currency value di field 'pnl_currency' atau estimasi dari pips
-        # Kita asumsikan ada field 'pnl_amount' (jika belum ada, kita pakai pips * lot estimasi)
-        pnl = trade.get("pnl_amount", 0)
-        if pnl == 0:
-            # Fallback sederhana: Asumsi 1 pip = $10 (Standard) * Lot
-            pnl = abs(trade.get("pips", 0)) * trade.get("lot_size_num", 0.1) * 10
+        # 1. Hitung Kerugian Hari Ini
+        # Cari semua signal yang ditutup hari ini dengan status LOSS
+        cursor = signals_collection.find(
+            {"status": "LOSS", "closed_at": {"$gte": today_start}}
+        )
 
-        daily_loss_amount += abs(pnl)
+        daily_loss_amount = 0
 
-    # 2. Cek Limit Harian (5% Balance)
-    max_loss_limit = user_balance * MAX_DAILY_LOSS_PERCENT
-    if daily_loss_amount >= max_loss_limit:
-        msg = f"🛑 CIRCUIT BREAKER TRIPPED: Daily Loss ${daily_loss_amount:.2f} > Limit ${max_loss_limit:.2f}"
-        logger.warning(msg)
-        return False, msg
+        async for trade in cursor:
+            # PnL Real (jika ada) atau Estimasi dari Pips
+            pnl = trade.get("pnl", 0)
 
-    # 3. Cek Loss Streak (Berturut-turut)
-    consecutive_loss = 0
-    for t in recent_trades:
-        if t["status"] == "LOSS":
-            consecutive_loss += 1
-        else:
-            break  # Reset jika ketemu WIN
+            # Jika pnl tidak tersimpan, estimasi kasar:
+            # Loss biasanya negatif, kita ambil absolutnya
+            if pnl == 0:
+                # Fallback: Misal rugi rata-rata $5 per trade kalau data kosong
+                pnl = -5.0
 
-    if consecutive_loss >= MAX_CONSECUTIVE_LOSSES:
-        msg = f"🛑 CIRCUIT BREAKER TRIPPED: {consecutive_loss} Consecutive Losses"
-        logger.warning(msg)
-        return False, msg
+            # Kita jumlahkan kerugiannya (dibuat positif untuk perbandingan limit)
+            daily_loss_amount += abs(pnl)
 
-    return True, "OK"
+        # Cek Limit Harian
+        max_loss_limit = self.SYSTEM_BALANCE * self.MAX_DAILY_LOSS_PERCENT
+        if daily_loss_amount >= max_loss_limit:
+            return (
+                False,
+                f"Daily Loss ${daily_loss_amount:.2f} > Limit ${max_loss_limit:.2f}",
+            )
+
+        # 2. Cek Loss Streak (Berturut-turut)
+        # Ambil 10 trade terakhir yang sudah selesai (WIN/LOSS)
+        recent_cursor = (
+            signals_collection.find({"status": {"$in": ["WIN", "LOSS"]}})
+            .sort("closed_at", -1)
+            .limit(10)
+        )
+        recent_trades = await recent_cursor.to_list(length=10)
+
+        consecutive_loss = 0
+        for t in recent_trades:
+            if t["status"] == "LOSS":
+                consecutive_loss += 1
+            else:
+                break  # Reset streak jika ketemu WIN
+
+        if consecutive_loss >= self.MAX_CONSECUTIVE_LOSSES:
+            return False, f"Hit {consecutive_loss} Consecutive Losses"
+
+        return True, "OK"
+
+
+# --- GLOBAL INSTANCE ---
+# Ini yang akan di-import oleh producer.py
+risk_manager = RiskManager()

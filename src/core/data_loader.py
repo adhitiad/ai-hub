@@ -1,11 +1,11 @@
 import asyncio
-import logging
 
 import ccxt.async_support as ccxt
 import pandas as pd
 import pandas_ta as ta
 import yfinance as yf
 
+from src.core.feature_engineering import enrich_data
 from src.core.logger import logger
 
 # Daftar Exchange yang akan dicek (Urutan Prioritas)
@@ -113,17 +113,7 @@ async def fetch_data_async(symbol, period="2y", interval="1h"):
 
     # 3. Indikator Teknikal
     try:
-        df.ta.rsi(length=14, append=True)
-        df.ta.macd(append=True)
-        df.ta.sma(length=20, append=True)
-        df.ta.sma(length=50, append=True)
-        df.ta.atr(length=14, append=True)
-
-        if "ATRr_14" in df.columns:
-            df = df.rename(columns={"ATRr_14": "ATR_14"})
-
-        df_clean = df.dropna()
-        df_clean = df_clean.loc[:, ~df_clean.columns.duplicated()]
+        df_clean = enrich_data(df)
 
         return df_clean
 

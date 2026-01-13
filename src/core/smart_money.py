@@ -4,82 +4,83 @@ import pandas as pd
 
 def analyze_forex_whale(df):
     """
-    Mendeteksi jejak Institutional Trader di Forex menggunakan konsep SMC
-    (Liquidity Grabs & Imbalance).
+    Core Logic: Mendeteksi jejak Institutional Trader (SMC)
     """
     if len(df) < 50:
-        return None
+        return {"detected": False, "score": 0, "type": "NEUTRAL", "strength": "LOW"}
 
     # Data Data Terakhir
     curr = df.iloc[-1]
-    prev = df.iloc[-2]
 
     # 1. Hitung ATR (Volatilitas) & Volume Rata-rata
-    atr = df["ATR_14"].iloc[-1]
+    atr = df["ATR_14"].iloc[-1] if "ATR_14" in df.columns else 0
     avg_vol = df["Volume"].rolling(20).mean().iloc[-1]
     curr_vol = curr["Volume"]
 
     # Ukuran Candle (Body & Range)
     body_size = abs(curr["Close"] - curr["Open"])
-    total_range = curr["High"] - curr["Low"]
 
     whale_signal = {
         "detected": False,
+        "score": 0,  # Netral
         "type": "NEUTRAL",
         "message": "Market Normal",
         "strength": "LOW",
     }
 
-    # --- LOGIC 1: LIQUIDITY GRAB (STOP HUNT) ---
-    # Ciri: Ekor panjang menembus support/resist, tapi close balik arah
-    # Ini tanda Bank sedang 'belanja' Stop Loss ritel.
-
-    # Cari Support/Resistance lokal (Low/High 10 candle terakhir)
+    # Support/Resist lokal (Low/High 15 candle terakhir)
     recent_low = df["Low"].iloc[-15:-1].min()
     recent_high = df["High"].iloc[-15:-1].max()
 
-    # DETEKSI BULLISH WHALE (Bear Trap)
-    # Harga sempat turun di bawah Low terendah (Breakout palsu),
-    # lalu Close kembali di atasnya dengan Volume tinggi.
+    # --- LOGIC 1: LIQUIDITY GRAB (STOP HUNT) ---
+
+    # DETEKSI BULLISH WHALE (Bear Trap / Liquidity Grab Lower)
     if (curr["Low"] < recent_low) and (curr["Close"] > recent_low):
-        if curr_vol > (avg_vol * 1.5):  # Volume minimal 1.5x rata-rata
+        if curr_vol > (avg_vol * 1.2):
             whale_signal = {
                 "detected": True,
+                "score": 25,  # Menambah skor BUY
                 "type": "WHALE_BUY",
-                "message": "Liquidity Grab Detected (Bear Trap)",
+                "message": "⚠️ SMC: Liquidity Grab (Bear Trap) Detected",
                 "strength": "HIGH",
             }
 
-    # DETEKSI BEARISH WHALE (Bull Trap)
-    # Harga sempat naik di atas High tertinggi,
-    # lalu Close kembali di bawahnya.
+    # DETEKSI BEARISH WHALE (Bull Trap / Liquidity Grab Upper)
     elif (curr["High"] > recent_high) and (curr["Close"] < recent_high):
-        if curr_vol > (avg_vol * 1.5):
+        if curr_vol > (avg_vol * 1.2):
             whale_signal = {
                 "detected": True,
+                "score": -25,  # Mengurangi skor (Signal SELL)
                 "type": "WHALE_SELL",
-                "message": "Liquidity Grab Detected (Bull Trap)",
+                "message": "⚠️ SMC: Liquidity Grab (Bull Trap) Detected",
                 "strength": "HIGH",
             }
 
-    # --- LOGIC 2: INSTITUTIONAL CANDLE (IMBALANCE) ---
-    # Ciri: Candle sangat besar (Marubozu) searah trend
-    # Ini tanda Bank masuk uang besar (Momentum).
+    # --- LOGIC 2: MOMENTUM IMBALANCE ---
 
-    elif body_size > (atr * 2.0):  # Body candle 2x lipat rata-rata harian
+    elif body_size > (atr * 2.0):
         if curr["Close"] > curr["Open"]:
             whale_signal = {
                 "detected": True,
+                "score": 15,
                 "type": "MOMENTUM_BUY",
-                "message": "Institutional Buying Pressure (Imbalance)",
+                "message": "Institutional Buying (Imbalance)",
                 "strength": "MEDIUM",
             }
         else:
             whale_signal = {
                 "detected": True,
+                "score": -15,
                 "type": "MOMENTUM_SELL",
-                "message": "Institutional Selling Pressure (Imbalance)",
+                "message": "Institutional Selling (Imbalance)",
                 "strength": "MEDIUM",
             }
 
     return whale_signal
+
+
+def analyze_smart_money(df):
+    """
+    Wrapper function agar nama fungsi konsisten dengan import di scoring.py
+    """
+    return analyze_forex_whale(df)

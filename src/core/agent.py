@@ -4,6 +4,7 @@ import os
 
 import numpy as np
 import pandas as pd
+from sklearn.preprocessing import StandardScaler
 from stable_baselines3 import PPO
 
 # --- 2. ADVANCED ANALYSIS ---
@@ -12,12 +13,18 @@ from src.core.bandarmology import analyze_bandar_flow
 # --- 1. DATA & ASSETS ---
 from src.core.config_assets import get_asset_info
 from src.core.data_loader import fetch_data_async  # [UPDATE] Async Loader
+
+# IMPORT BARU: Gunakan logic fitur terpusat
+from src.core.feature_engineering import enrich_data, get_model_input
+from src.core.logger import logger
 from src.core.market_structure import check_mtf_trend, detect_insider_volume
 from src.core.money_management import calculate_kelly_lot, check_correlation_risk
 from src.core.pattern_recognizer import detect_chart_patterns
 
 # --- 3. RISK & MONEY MANAGEMENT ---
-from src.core.risk_manager import check_circuit_breaker
+from src.core.risk_manager import risk_manager
+from src.core.scoring import calculate_technical_score
+from src.core.smart_money import analyze_smart_money
 from src.core.vector_db import recall_similar_events
 from src.core.whale_crypto import analyze_crypto_whales  # [UPDATE] Whale Detector
 
@@ -62,7 +69,9 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
 
         # --- B. GLOBAL RISK CHECKS ---
         # Pastikan fungsi-fungsi risk manager ini async atau dipanggil dengan benar
-        can_trade, reject_reason = await check_circuit_breaker()
+        can_trade, reject_reason = (
+            await risk_manager.can_trade()
+        )  # Panggil method public wrapper
         if not can_trade:
             return {
                 "Symbol": symbol,
@@ -81,6 +90,9 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         if df.empty:
             return {"Symbol": symbol, "Action": "HOLD", "Reason": "No Data Fetched"}
 
+        # --- C. DATA ENRICHMENT ---
+        df = enrich_data(df)
+
         # --- D. LOAD MODEL ---
         # Mencari model yang sesuai kategori (forex/stock/crypto)
         base_dir = f"{MODEL_DIR}/{category}"
@@ -95,24 +107,49 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         if not files:
             return {"Symbol": symbol, "Action": "HOLD", "Reason": "No Model Trained"}
 
-        files.sort(reverse=True)  # Ambil yang terbaru
+        if not files:
+            files = glob.glob(f"{base_dir}/GENERIC*.zip")
 
-        # Load Model (Jalankan di thread terpisah agar tidak blocking)
-        model = await asyncio.to_thread(PPO.load, files[0])
+        if not files:
+            # Fallback: Jika tidak ada model PPO, gunakan Rule Based saja
+            # Jangan langsung return HOLD, biarkan logic bawah jalan
+
+            model = None
+        else:
+            files.sort(reverse=True)
+            model = await asyncio.to_thread(PPO.load, files[0])
 
         # --- E. AI PREDICTION ---
-        last_row = df.iloc[-1]
+        # --- E. AI PREDICTION (PERBAIKAN TOTAL) ---
+        base_action = "HOLD"
+        confidence = 50.0  # Start neutral
 
-        # Pastikan input shape sesuai (sesuaikan dengan environment training)
-        obs = np.append(np.array(last_row.values), [0])
+        if model:
+            # 1. FILTER KOLOM: Hanya ambil kolom fitur yang dipelajari model
+            df_features = get_model_input(df)
 
-        # Predict (Jalankan di thread terpisah)
-        action, _ = await asyncio.to_thread(model.predict, obs)
+            # 2. NORMALISASI: Scaling data agar range-nya sama dengan saat training
+            # Kita fit scaler pada seluruh history 2y agar distribusi nilainya valid
+            scaler = StandardScaler()
+            scaled_features = scaler.fit_transform(df_features)
 
-        action_map = {0: "HOLD", 1: "BUY", 2: "SELL"}
-        base_action = action_map[int(action)]
+            # 3. Ambil baris terakhir yang sudah ternormalisasi
+            last_obs_features = scaled_features[-1]
 
-        confidence = 70.0
+            # 4. Tambahkan info posisi (0 = No Position)
+            # Shape akhir harus match dengan env.observation_space
+            obs = np.append(last_obs_features, [0]).astype(np.float32)
+
+            # 5. Predict
+            action, _ = await asyncio.to_thread(model.predict, obs)
+            action_map = {0: "HOLD", 1: "BUY", 2: "SELL"}
+            base_action = action_map[int(action)]
+
+            # Base confidence dari AI
+            if base_action != "HOLD":
+                confidence = 65.0
+
+        last_row = df.iloc[-1].copy()
         reasons = []
 
         # --- F. ADVANCED ANALYSIS INTEGRATION ---
@@ -199,15 +236,20 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
 
         # 6. ML FEATURES (Random Forest)
         if "ml_analyzer" in globals():
-            regime = ml_analyzer.detect_market_regime(df)
-            if regime == 2:
-                confidence -= 15
-                reasons.append("High Volatility ⚠️")
-
+            # rf_signal_confirmation sudah otomatis handle enrich & input shape
             rf_score = ml_analyzer.rf_signal_confirmation(df)
+
             if abs(rf_score) > 20:
                 confidence += rf_score / 10
-                reasons.append(f"ML Pattern Score: {rf_score}")
+                reasons.append(f"RF Model: {rf_score}")
+
+                # Logic override jika RF sangat yakin tapi PPO ragu
+                if rf_score > 80 and base_action == "HOLD":
+                    base_action = "BUY"
+                    reasons.append("RF Strong Override")
+                elif rf_score < -80 and base_action == "HOLD":
+                    base_action = "SELL"
+                    reasons.append("RF Strong Override")
 
         # 7. NEWS SENTIMENT
         if "fetch_market_news" in globals():

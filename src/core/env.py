@@ -2,13 +2,15 @@ import gymnasium as gym
 import numpy as np
 import pandas as pd
 from gymnasium import spaces
+from sklearn.preprocessing import StandardScaler
 
+from src.core.feature_engineering import FEATURE_COLUMNS, get_model_input
 from src.core.logger import logging
 
 
 class AdvancedForexEnv(gym.Env):
     """
-    Custom Environment Trading yang kompatibel dengan Gymnasium & Stable-Baselines3
+    Custom Environment Trading dengan Normalisasi Data
     """
 
     metadata = {"render_modes": ["human"]}
@@ -23,132 +25,126 @@ class AdvancedForexEnv(gym.Env):
     ):
         super(AdvancedForexEnv, self).__init__()
 
-        self.df = df
-        self.max_steps = len(df) - 1
+        # Copy dataframe agar tidak merusak data asli
+        self.raw_df = df.copy()
         self.spread = spread
         self.commission = commission
-
-        # --- MEMORY INJECTION ---
-        # Dictionary berisi { "TIMESTAMP": ACTION_YANG_SALAH }
         self.mistakes_data = mistakes_data if mistakes_data else {}
 
-        # Initialize attributes
-        self.net_worth = 1000
+        # --- FEATURE ENGINEERING CENTRALIZED ---
+        # Ambil hanya kolom fitur ML yang baku
+        self.features_df = get_model_input(df)
+
+        # --- NORMALISASI DATA (CRITICAL FIX) ---
+        # AI akan gagal paham jika inputnya campuran harga (1.000.000) dan RSI (50)
+        # Kita scale semua kolom numerik menjadi range rata-rata 0, deviasi 1
+        self.scaler = StandardScaler()
+        self.scaled_features = self.scaler.fit_transform(self.features_df)
+
+        # Setup Gym
+        self.max_steps = len(df) - 1
+        self.balance = initial_balance
+        self.net_worth = initial_balance
         self.position = 0
         self.entry_price = 0
 
-        # --- Action Space ---
-        # 0: Hold, 1: Buy, 2: Sell
         self.action_space = spaces.Discrete(3)
 
+        # Hapus kolom non-numerik jika ada (jaga-jaga)
+        numeric_df = self.raw_df.select_dtypes(include=[np.number])
+
+        # Fit & Transform seluruh data (Note: Utk production ketat, gunakan window scaling)
+        # Tapi untuk fix cepat & stabil, scaling global di awal sudah jauh lebih baik dari raw.
+        self.scaled_data = self.scaler.fit_transform(numeric_df)
+
+        # Simpan nama kolom untuk referensi debug
+        self.feature_columns = numeric_df.columns
+
+        # Shape Observation: Jumlah Fitur Baku + 1 (Posisi)
+        # Dijamin konsisten karena pakai FEATURE_COLUMNS dari feature_engineering.py
+        self.shape = (len(FEATURE_COLUMNS) + 1,)
+
         # --- Observation Space ---
-        # Kolom Data (OHLCV + Indicators) + 1 Status Posisi
-        # Kita pakai Float64 agar presisi, tapi model biasanya minta Float32 (kita cast nanti)
-        self.shape = (df.shape[1] + 1,)
+        # Shape: Jumlah Fitur di DF + 1 (Status Posisi)
+        self.shape = (self.scaled_data.shape[1] + 1,)
+
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=self.shape, dtype=np.float32
         )
 
-        # Inisialisasi state awal
         self.reset()
 
-    def reset(self, seed=None, options=None):
-        """
-        Reset environment ke kondisi awal.
-        Wajib menerima parameter 'seed' dan 'options' di Gymnasium.
-        """
-        # Set seed untuk reproducibility
-        super().reset(seed=seed)
-
-        self.balance = 1000
-        self.net_worth = 1000
-        self.position = 0  # 0: No Pos, 1: Buy, 2: Sell (Simplifikasi 1 arah dulu)
-        self.entry_price = 0
-        self.current_step = 0
-
-        # Return Tuple: (Observation, Info Dictionary)
-        return self._next_observation(), {}
-
     def _next_observation(self):
-        # Ambil data baris saat ini
-        frame = self.df.iloc[self.current_step].values
+        # Ambil data TERNORMALISASI (Scaled), bukan data raw
+        frame = self.scaled_data[self.current_step]
 
         # Gabungkan dengan info posisi kita
         obs = np.append(frame, [self.position])
 
-        # Pastikan tipe data float32 agar cocok dengan PyTorch
         return obs.astype(np.float32)
 
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
+
+        self.balance = 100000
+        self.net_worth = 100000
+        self.position = 0
+        self.entry_price = 0
+        self.current_step = 0
+
+        return self._next_observation(), {}
+
     def step(self, action):
-        """
-        Melakukan aksi trading.
-        Return 5 values: obs, reward, terminated, truncated, info
-        """
         self.current_step += 1
 
-        # Harga saat ini
-        current_price = self.df.iloc[self.current_step]["Close"]
+        # Ambil Harga ASLI (Raw) untuk hitung profit/loss beneran
+        current_price = self.raw_df.iloc[self.current_step]["Close"]
 
         reward = 0
-
-        # Logic Trading Sederhana
         prev_net_worth = self.net_worth
 
         # 1. Eksekusi Action
         if action == 1 and self.position == 0:  # OPEN BUY
             self.position = 1
             self.entry_price = current_price + self.spread
-            reward -= self.spread  # Biaya spread langsung minus
+            reward -= self.spread  # Cost spread
 
-        elif action == 2 and self.position == 1:  # CLOSE BUY (SELL)
+        elif action == 2 and self.position == 1:  # CLOSE BUY
             self.position = 0
             profit = current_price - self.entry_price - self.commission
             self.balance += profit
-            # Reward besar jika profit, hukuman jika rugi
-            reward += profit * 10
+            # Reward berdasarkan % gain agar konsisten antar aset
+            pct_gain = (profit / self.entry_price) * 100
+            reward += pct_gain * 10
 
-        # (Tambahkan logika Short Selling jika perlu, disini simplifikasi Long Only dulu)
-
-        # 2. Update Net Worth (Floating Profit)
+        # 2. Update Net Worth
         if self.position == 1:
             unrealized_pnl = current_price - self.entry_price
             self.net_worth = self.balance + unrealized_pnl
         else:
             self.net_worth = self.balance
 
-        # 3. Reward Shaping (Agar AI cepat belajar)
-        # Beri reward jika Net Worth naik
-        reward += self.net_worth - prev_net_worth
+        # 3. Reward Shaping
+        # Reward kecil setiap step jika net worth naik
+        reward += (self.net_worth - prev_net_worth) * 0.1
 
-        # 4. Cek Selesai (Terminated)
+        # 4. Terminated?
         terminated = self.current_step >= self.max_steps
-
-        # Jika bangkrut (Margin Call)
-        if self.net_worth <= 0:
+        if self.net_worth <= (self.balance * 0.5):  # Stop jika rugi 50%
             terminated = True
-            reward -= 100  # Hukuman berat
+            reward -= 100
 
-        # 5. Truncated (Biasanya False untuk trading, kecuali dibatasi waktu strict)
         truncated = False
 
-        # --- LOGIKA BELAJAR DARI KESALAHAN (REFLECTIVE LEARNING) ---
+        # 5. Reflection Learning (Mistakes Database)
+        current_time_idx = self.raw_df.index[self.current_step]
+        current_time_str = str(current_time_idx)
 
-        # 1. Cek tanggal candle saat ini
-        current_time_idx = self.df.index[self.current_step]
-        current_time_str = str(current_time_idx)  # Sesuaikan format dengan memory.py
-
-        # 2. Apakah di masa lalu kita pernah rugi di candle ini?
         if current_time_str in self.mistakes_data:
             past_bad_action = self.mistakes_data[current_time_str]
-
-            # 3. Apakah AI mencoba mengulangi aksi bodoh itu?
             if action == past_bad_action:
-                # HUKUMAN BERAT!
-                # Ini mengajarkan AI: "Dulu kamu BUY di pola ini dan hancur. JANGAN ULANGI!"
-                penalty = -500
-                reward += penalty
+                reward -= 50  # Penalti besar karena mengulangi kesalahan
 
-        # 6. Info tambahan
         info = {
             "balance": self.balance,
             "net_worth": self.net_worth,
