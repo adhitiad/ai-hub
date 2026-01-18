@@ -1,24 +1,26 @@
+# src/core/socket_manager.py
 import asyncio
 import json
 import random
-from typing import Dict, List
 
-from fastapi import WebSocket
+from fastapi import WebSocket, WebSocketDisconnect
 
-# IMPORT PENTING: Ambil data dari Bus Penyimpanan Sinyal
+from src.core.logger import logger
+from src.core.redis_client import redis_client
 from src.core.signal_bus import signal_bus
 
 
 class ConnectionManager:
     def __init__(self):
-        # Menyimpan koneksi aktif per symbol: {"BTCUSD": [ws1, ws2]}
-        self.active_connections: Dict[str, List[WebSocket]] = {}
+        # Simpan koneksi aktif: {"BBCA.JK": [ws1, ws2]}
+        self.active_connections: dict[str, list[WebSocket]] = {}
 
     async def connect(self, websocket: WebSocket, symbol: str):
         await websocket.accept()
         if symbol not in self.active_connections:
             self.active_connections[symbol] = []
         self.active_connections[symbol].append(websocket)
+        logger.info(f"🔌 WS Connected: {symbol}")
 
     def disconnect(self, websocket: WebSocket, symbol: str):
         if symbol in self.active_connections:
@@ -28,17 +30,51 @@ class ConnectionManager:
                 del self.active_connections[symbol]
 
     async def broadcast(self, symbol: str, data: dict):
+        """Broadcast data to all WebSocket clients subscribed to a symbol."""
         if symbol in self.active_connections:
-            # Copy list untuk menghindari error 'changed size during iteration'
-            for connection in list(self.active_connections[symbol]):
+            connections = self.active_connections[symbol]
+            for ws in list(connections):  # Copy list for safety
                 try:
-                    await connection.send_json(data)
+                    await ws.send_json(data)
                 except Exception:
-                    # Hapus koneksi mati secara aman
-                    self.disconnect(connection, symbol)
+                    self.disconnect(ws, symbol)
 
 
 manager = ConnectionManager()
+
+
+async def redis_connector_task():
+    """
+    Task ini mendengarkan Redis Pub/Sub dan mem-push ke WebSocket
+    HANYA ketika ada data baru. Tanpa polling.
+    """
+    await redis_client.connect()
+    redis_conn = redis_client.redis
+    if redis_conn:
+        pubsub = redis_conn.pubsub()
+
+        # Subscribe ke channel global (atau logic specific channel)
+        await pubsub.subscribe("signal:all")
+
+        logger.info("🎧 Redis Pub/Sub Listener Started")
+
+        async for message in pubsub.listen():
+            if message["type"] == "message":
+                try:
+                    data = json.loads(message["data"])
+                    symbol = data.get("Symbol")
+
+                    # Push hanya ke client yang subscribe simbol ini
+                    if symbol and symbol in manager.active_connections:
+                        connections = manager.active_connections[symbol]
+                        for ws in list(connections):  # Copy list agar aman
+                            try:
+                                await ws.send_json(data)
+                            except Exception:
+                                manager.disconnect(ws, symbol)
+
+                except Exception as e:
+                    logger.error(f"WS Broadcast Error: {e}")
 
 
 # --- Background Task Real-Time Stream ---
@@ -52,7 +88,7 @@ async def broadcast_market_data():
 
             for symbol in active_symbols:
                 # 1. AMBIL DATA REAL DARI SIGNAL BUS (Hasil AI)
-                ai_data = signal_bus.get_signal(symbol)
+                ai_data = await signal_bus.get_signal(symbol)
 
                 if ai_data:
                     # Kirim paket lengkap (Price, Action, Tp, Sl, Prob, Analysis)
@@ -72,6 +108,9 @@ async def broadcast_market_data():
                         "AI_Analysis": "Initializing AI models...",
                     }
                     await manager.broadcast(symbol, fallback_data)
+
+        # Update setiap 1 detik (Sesuaikan jika ingin lebih cepat/lambat)
+        await asyncio.sleep(1)
 
         # Update setiap 1 detik (Sesuaikan jika ingin lebih cepat/lambat)
         await asyncio.sleep(1)

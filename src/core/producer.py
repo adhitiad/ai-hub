@@ -6,6 +6,7 @@ from src.core.database import assets_collection, signals_collection, users_colle
 from src.core.logger import logger
 from src.core.market_schedule import is_market_open
 from src.core.notifier import format_signal_message, send_telegram_message
+from src.core.redis_client import redis_client
 from src.core.risk_manager import (
     risk_manager,
 )  # Pastikan ada instance global risk_manager
@@ -15,6 +16,15 @@ from src.core.telegram_notifier import telegram_bot
 # --- KONFIGURASI SAFETY ---
 # Batasi hanya 5-10 request bersamaan agar tidak kena Rate Limit / Banned IP
 CONCURRENCY_LIMIT = 5
+
+
+async def save_signal_background(signal_data):
+    """Fungsi ini berjalan di background tanpa menahan proses utama"""
+    try:
+        await signals_collection.insert_one(signal_data)
+        logger.info(f"💾 DB Async Save: {signal_data['symbol']}")
+    except Exception as e:
+        logger.error(f"❌ DB Save Failed: {e}")
 
 
 async def process_single(asset_info):
@@ -45,7 +55,7 @@ async def process_single(asset_info):
         return False
 
     # 2. Cek apakah sinyal berubah (Logic Update Signal Bus)
-    old_data = signal_bus.get_signal(symbol)
+    old_data = await signal_bus.get_signal(symbol)
     is_new_signal = False
 
     if not old_data:
@@ -55,7 +65,7 @@ async def process_single(asset_info):
         is_new_signal = True
 
     # Update state terakhir di RAM (Signal Bus)
-    signal_bus.update_signal(symbol, data)
+    await signal_bus.update_signal(symbol, data)
 
     # 3. Broadcast ke User Premium jika ada sinyal baru
     if is_new_signal:
@@ -80,7 +90,7 @@ async def process_single(asset_info):
 
     # 4. Cek Jadwal Pasar
     if not is_market_open(category):
-        signal_bus.update_signal(
+        await signal_bus.update_signal(
             symbol,
             {
                 "Symbol": symbol,
@@ -93,14 +103,23 @@ async def process_single(asset_info):
         return False
 
     # 5. Eksekusi Auto-Trading (Masuk Database Signals)
+    # 5. Eksekusi Auto-Trading
     try:
         action_upper = data["Action"].upper()
         if "BUY" in action_upper or "SELL" in action_upper:
-            existing_position = await signals_collection.find_one(
-                {"symbol": symbol, "status": "OPEN"}
-            )
+            # Cek duplikat di Redis (Jauh lebih cepat daripada DB)
+            # Gunakan key seperti "active_trade:BBCA.JK"
+            # Ensure redis connection is established
+            if not redis_client.redis:
+                await redis_client.connect()
+            # Use type assertion to tell Pylance that redis is not None after connect
+            redis_conn = redis_client.redis
+            if redis_conn:
+                is_active = await redis_conn.get(f"active_trade:{symbol}")
+            else:
+                is_active = None
 
-            if not existing_position:
+            if not is_active:
                 new_signal = {
                     "symbol": data["Symbol"],
                     "action": data["Action"],
@@ -112,17 +131,22 @@ async def process_single(asset_info):
                     "created_at": datetime.utcnow(),
                 }
 
-                await signals_collection.insert_one(new_signal)
-                logger.info(f"💾 SAVED DB: {symbol} {data['Action']}")
-
-                # Trigger Notif Channel Telegram Umum
+                # CRITICAL UPDATE: Jangan await insert_one secara langsung!
+                # Broadcast dulu (Prioritas 1)
                 if telegram_bot:
                     asyncio.create_task(telegram_bot.broadcast_signal(data))
+
+                # Lalu simpan DB di background (Prioritas 2)
+                asyncio.create_task(save_signal_background(new_signal))
+
+                # Set Flag di Redis agar tidak open posisi ganda (Expire 1 jam misal)
+                if redis_conn:
+                    await redis_conn.setex(f"active_trade:{symbol}", 3600, "OPEN")
 
         return True
 
     except Exception as e:
-        logger.error(f"Worker DB Save Error {symbol}: {e}")
+        logger.error(f"Worker Error {symbol}: {e}")
         return False
 
 
@@ -161,8 +185,8 @@ async def signal_producer_task():
             # 3. Jalankan parallel (tapi dibatasi semaphore di dalamnya)
             await asyncio.gather(*tasks, return_exceptions=True)
 
-            # Simpan snapshot
-            signal_bus.save_snapshot()
+            # Simpan snapshot (removed as save_snapshot method doesn't exist)
+            # signal_bus.save_snapshot()
 
             logger.info("✅ Scan cycle finished. Sleeping...")
             # Tunggu 60 detik sebelum scan ulang

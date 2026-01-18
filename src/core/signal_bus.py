@@ -1,50 +1,23 @@
-import datetime
-import json
-import os
-
-SNAPSHOT_FILE = "signal_snapshot.json"
+# src/core/signal_bus.py
+from src.core.redis_client import redis_client
 
 
 class InternalSignalBus:
-    _instance = None
-    _storage = {}
+    """
+    Sekarang bertindak sebagai Proxy ke Redis.
+    Tidak ada lagi variabel _storage lokal.
+    """
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(InternalSignalBus, cls).__new__(cls)
-            cls._instance.load_snapshot()
-        return cls._instance
+    async def update_signal(self, symbol, data):
+        # Fire and forget ke Redis
+        await redis_client.set_signal(symbol, data)
 
-    def update_signal(self, symbol, data):
-        self._storage[symbol] = {
-            "data": data,
-            "updated_at": str(datetime.datetime.now()),
-        }
+    async def get_signal(self, symbol):
+        return await redis_client.get_signal(symbol)
 
-    def get_signal(self, symbol):
-        record = self._storage.get(symbol)
-        return record["data"] if record else None
-
-    def get_all_signals(self):
-        return {k: v["data"] for k, v in self._storage.items()}
-
-    def save_snapshot(self):
-        try:
-            with open(SNAPSHOT_FILE, "w") as f:
-                json.dump(self._storage, f)
-        except:
-            pass
-
-    def load_snapshot(self):
-        if os.path.exists(SNAPSHOT_FILE):
-            try:
-                with open(SNAPSHOT_FILE, "r") as f:
-                    self._storage = json.load(f)
-            except:
-                pass
-
-    def get_active_threads_count(self):
-        return len(self._storage)
+    async def get_all_signals(self):
+        return await redis_client.get_all_signals()
 
 
+# Instance
 signal_bus = InternalSignalBus()

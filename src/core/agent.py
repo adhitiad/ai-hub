@@ -18,6 +18,7 @@ from src.core.data_loader import fetch_data_async  # [UPDATE] Async Loader
 from src.core.feature_engineering import enrich_data, get_model_input
 from src.core.logger import logger
 from src.core.market_structure import check_mtf_trend, detect_insider_volume
+from src.core.model_loader import ModelCache
 from src.core.money_management import calculate_kelly_lot, check_correlation_risk
 from src.core.pattern_recognizer import detect_chart_patterns
 
@@ -104,29 +105,7 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
 
         # --- D. LOAD MODEL ---
         # Mencari model yang sesuai kategori (forex/stock/crypto)
-        base_dir = f"{MODEL_DIR}/{category}"
-        pattern = f"{base_dir}/{safe_symbol}*.zip"
-        files = glob.glob(pattern)
-
-        # Jika model spesifik tidak ada, coba cari model generic
-        if not files:
-            pattern = f"{base_dir}/GENERIC*.zip"
-            files = glob.glob(pattern)
-
-        if not files:
-            return {"Symbol": symbol, "Action": "HOLD", "Reason": "No Model Trained"}
-
-        if not files:
-            files = glob.glob(f"{base_dir}/GENERIC*.zip")
-
-        if not files:
-            # Fallback: Jika tidak ada model PPO, gunakan Rule Based saja
-            # Jangan langsung return HOLD, biarkan logic bawah jalan
-
-            model = None
-        else:
-            files.sort(reverse=True)
-            model = await asyncio.to_thread(PPO.load, files[0])
+        model = await ModelCache.get_model(symbol, category)
 
         # --- E. AI PREDICTION ---
         # --- E. AI PREDICTION (PERBAIKAN TOTAL) ---
@@ -373,4 +352,5 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
 # Test Runner (Optional)
 def test_agent():
     # Test cases can be added here
+    pass
     pass

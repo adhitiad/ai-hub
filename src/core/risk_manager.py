@@ -13,9 +13,11 @@ class RiskManager:
 
     def __init__(self):
         # Config Hardcoded (Bisa dipindah ke .env nanti)
-        self.MAX_DAILY_LOSS_PERCENT = 0.05  # Stop jika rugi 5% dari saldo per hari
-        self.MAX_CONSECUTIVE_LOSSES = 5  # Stop jika rugi 5x berturut-turut
-        self.SYSTEM_BALANCE = 1000  # Asumsi Balance Virtual System ($1000)
+        self.MAX_DAILY_LOSS_PERCENT: float = (
+            0.05  # Stop jika rugi 5% dari saldo per hari
+        )
+        self.MAX_CONSECUTIVE_LOSSES: int = 5  # Stop jika rugi 5x berturut-turut
+        self.SYSTEM_BALANCE: float = 1000  # Asumsi Balance Virtual System ($1000)
 
     async def can_trade(self) -> tuple[bool, str]:
         """

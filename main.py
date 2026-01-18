@@ -27,8 +27,9 @@ from src.core.database import close_db_connection, init_db_indexes
 from src.core.logger import logger
 from src.core.middleware import register_middleware
 from src.core.producer import signal_producer_task
+from src.core.redis_client import redis_client
 from src.core.signal_bus import signal_bus
-from src.core.socket_manager import broadcast_market_data, manager
+from src.core.socket_manager import manager, redis_connector_task
 from src.core.subscription_scheduler import start_scheduler
 from src.core.training_scheduler import training_scheduler_task
 
@@ -48,7 +49,8 @@ async def lifespan(app: FastAPI):
     # Simpan task reference agar tidak terkena garbage collection
     tasks = [
         asyncio.create_task(signal_producer_task()),
-        asyncio.create_task(broadcast_market_data()),
+        # Ganti broadcast_market_data dengan redis_connector_task
+        asyncio.create_task(redis_connector_task()),
         asyncio.create_task(start_scheduler()),
         asyncio.create_task(training_scheduler_task()),
     ]
@@ -61,9 +63,15 @@ async def lifespan(app: FastAPI):
     # 1. Cancel background tasks
     for task in tasks:
         task.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
 
     # 2. Tutup koneksi Database
     await close_db_connection()
+    logger.info("🔒 Database Connection Closed")
+
+    # 3. Tutup koneksi Redis
+    await redis_client.close()  # Close Redis
+    logger.info("🔒 Redis Connection Closed")
 
 
 # --- Init App ---
@@ -108,12 +116,9 @@ async def websocket_endpoint(websocket: WebSocket, symbol: str):
             # Keep connection alive
             await websocket.receive_text()
     except WebSocketDisconnect:
+        # Handle disconnection
+        logger.info(f"❌ WS Disconnected: {symbol}")
         manager.disconnect(websocket, symbol)
-
-
-@app.get("/dashboard/all")
-def get_dashboard():
-    return signal_bus.get_all_signals()
 
 
 @app.get("/health")

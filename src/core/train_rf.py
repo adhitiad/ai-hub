@@ -31,7 +31,9 @@ async def train_classic_ml():
     all_features = []
     all_targets = []
 
-    symbols_cursor = assets_collection.find({"type": {"$in": ["forex", "stock_indo"]}})
+    symbols_cursor = assets_collection.find(
+        {"type": {"$in": ["forex", "stock_indo", "crypto"]}}
+    )
     symbols = await symbols_cursor.to_list(length=None)
 
     for symbol_doc in symbols:
