@@ -7,7 +7,7 @@ from stable_baselines3 import PPO
 
 from src.core.config_assets import ASSETS, get_asset_info
 from src.core.data_loader import fetch_data
-from src.core.env import AdvancedForexEnv
+from src.core.env import TradingEnv
 from src.core.logger import logger
 from src.core.memory import get_mistake_history  # <--- Import Memory
 
@@ -62,8 +62,7 @@ async def train_weekly_models_async():
                 logger.info(f"found {len(mistakes)} historical errors to learn from.")
 
                 # 3. Masukkan Memori ke Environment
-                # Environment sekarang punya parameter 'mistakes_data'
-                env = AdvancedForexEnv(df, mistakes_data=mistakes)
+                env = TradingEnv(df, mistakes_data=mistakes)
 
                 # 4. Load Model Lama & Train
                 latest_path = get_latest_model_path(symbol, category)

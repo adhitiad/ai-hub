@@ -4,7 +4,7 @@ from stable_baselines3 import PPO
 
 # Import untuk kebutuhan validasi
 from src.core.data_loader import fetch_data
-from src.core.env import AdvancedForexEnv
+from src.core.env import TradingEnv
 
 # Import dari file yang baru saja kita perbaiki lokasinya
 from src.core.trainer import deploy_model, train_candidate
@@ -41,7 +41,7 @@ def run_auto_optimization(symbol, target_win_rate=60.0):
         if df_val.empty:
             raise ValueError("No validation data fetched")
 
-        env_val = AdvancedForexEnv(df_val)
+        env_val = TradingEnv(df_val)
         obs, _ = env_val.reset()
         done = False
         wins = 0

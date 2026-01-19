@@ -1,11 +1,11 @@
 import numpy as np
 import pandas as pd
 
-from src.core.data_loader import fetch_data
+from src.core.data_loader import fetch_data_async
 from src.core.logger import logger
 
 
-def check_mtf_trend(symbol, current_tf="1h"):
+async def check_mtf_trend(symbol, current_tf="1h"):
     """
     Dynamic Multi-Timeframe (MTF) Confirmation.
     Mengecek tren di Timeframe 'Kakak Kelas'-nya.
@@ -29,7 +29,7 @@ def check_mtf_trend(symbol, current_tf="1h"):
     try:
         # 2. Ambil Data Timeframe Atas
         # Kita butuh data cukup untuk hitung EMA 200
-        df_high = fetch_data(symbol, period="2y", interval=higher_tf)
+        df_high = await fetch_data_async(symbol, period="2y", interval=higher_tf)
 
         if df_high.empty:
             return "NEUTRAL", "MTF Data Empty"

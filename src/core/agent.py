@@ -15,7 +15,7 @@ from src.core.config_assets import get_asset_info
 from src.core.data_loader import fetch_data_async  # [UPDATE] Async Loader
 
 # IMPORT BARU: Gunakan logic fitur terpusat
-from src.core.feature_engineering import enrich_data, get_model_input
+from src.core.feature_enginering import enrich_data, get_model_input
 from src.core.logger import logger
 from src.core.market_structure import check_mtf_trend, detect_insider_volume
 from src.core.model_loader import ModelCache
@@ -43,6 +43,7 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
     """
     ULTIMATE SIGNAL GENERATOR (Async Version + Crypto Support + Advanced Analysis + Stock Indo Support)
     """
+
     try:
         # --- A. SETUP & VALIDATION ---
         if not asset_info:

@@ -6,7 +6,7 @@ from stable_baselines3 import PPO
 
 from src.core.config_assets import get_asset_info
 from src.core.data_loader import fetch_data
-from src.core.env import AdvancedForexEnv
+from src.core.env import TradingEnv
 from src.core.torch_config import device
 
 CANDIDATE_DIR = "models/candidates"
@@ -25,7 +25,7 @@ def train_candidate(symbol, total_timesteps=20000):
             return {"success": False, "error": "Data tidak cukup"}
 
         # 2. Setup Environment
-        env = AdvancedForexEnv(df)
+        env = TradingEnv(df)
 
         # 3. Setup Model (PPO)
         model = PPO("MlpPolicy", env, verbose=0, device=device)

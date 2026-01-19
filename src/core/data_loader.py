@@ -5,7 +5,7 @@ import pandas as pd
 import pandas_ta as ta
 import yfinance as yf
 
-from src.core.feature_engineering import enrich_data
+from src.core.feature_enginering import enrich_data, get_model_input
 from src.core.logger import logger
 
 # Daftar Exchange yang akan dicek (Urutan Prioritas)

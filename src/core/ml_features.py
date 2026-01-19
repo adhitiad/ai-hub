@@ -7,13 +7,10 @@ import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
+from train_rf import enrich_data, get_model_input
 
+from src.core.feature_enginering import enrich_data, get_model_input
 from src.core.logger import logger
-
-RF_MODEL_PATH = "models/rf_model.joblib"
-
-
-from src.core.feature_engineering import enrich_data, get_model_input
 
 RF_MODEL_PATH = "models/rf_model.joblib"
 

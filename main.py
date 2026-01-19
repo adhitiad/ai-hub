@@ -102,10 +102,38 @@ app.include_router(journal_router)
 app.include_router(pipeline_router)
 app.include_router(backtest_router)
 
+
 # Catatan: Route 'new_route' dihapus karena tidak relevan untuk production.
 
 
 # --- 3. Global Endpoints ---
+app = FastAPI(title="AI Trading Hub", lifespan=lifespan)
+
+
+@app.get("/")
+async def root():
+    """
+    Root endpoint
+    """
+    return {
+        "status": "online",
+        "system": "AI-Hub Production Ready",
+        "version": "0.1-Alpha",
+        "environment": f"{os.getenv('ENVIRONMENT', 'development')}",
+        "server_time": datetime.now(),
+        "cpu_usage": f"{psutil.cpu_percent()}%",
+        "ram_usage": f"{psutil.virtual_memory().percent}%",
+        "cfg": {
+            "signal_agent": {
+                "enabled": f"{os.getenv('SIGNAL_AGENT_ENABLED', 'true').lower() == 'true'}",
+                "threshold": 0.5,
+            },
+            "other_config": {
+                "enabled": f"{os.getenv('OTHER_CONFIG_ENABLED', 'true').lower() == 'true'}",
+                "value": 42,
+            },
+        },
+    }
 
 
 @app.websocket("/ws/market/{symbol}")

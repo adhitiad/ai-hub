@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime
 
 from src.core.agent import get_detailed_signal
+from src.core.data_loader import fetch_data_async
 from src.core.database import assets_collection, signals_collection, users_collection
 from src.core.logger import logger
 from src.core.market_schedule import is_market_open
@@ -29,7 +30,6 @@ async def save_signal_background(signal_data):
 
 async def process_single(asset_info):
     """Proses sinyal untuk satu aset secara async"""
-    # PERBAIKAN: Tambahkan 'await' dan unpack return value
     allowed, reason = await risk_manager.can_trade()
 
     if not allowed:
@@ -39,6 +39,7 @@ async def process_single(asset_info):
     symbol = asset_info["symbol"]
     category = asset_info.get("category", "UNKNOWN")
 
+    # PERBAIKAN: Tambahkan 'await' dan unpack return value
     try:
         # Panggil langsung dengan await (jangan pakai to_thread untuk fungsi async)
         data = await get_detailed_signal(symbol, asset_info)
