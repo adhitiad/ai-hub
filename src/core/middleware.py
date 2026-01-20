@@ -1,12 +1,18 @@
 import time
 import traceback
+from datetime import datetime
 
+import redis.asyncio as redis
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi_limiter import FastAPILimiter
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 
+from src.core.database import db  # Asumsi ada koneksi DB
 from src.core.logger import logger
+from src.core.redis_client import redis_client
 
 
 # --- 1. Custom Logging Middleware ---
@@ -23,6 +29,28 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             raise e
 
         process_time = time.time() - start_time
+
+        # Hanya log audit untuk request yang mengubah data atau akses sensitif
+        if (
+            request.method in ["POST", "PUT", "DELETE"]
+            or "admin" in request.url.path
+            or "owner" in request.url.path
+        ):
+            # Ambil user dari header (diset oleh auth middleware sebelumnya)
+            # Ini simulasi, di production ambil dari request.state.user
+            user_email = request.headers.get("X-User-Email", "Anonymous")
+
+            log_entry = {
+                "timestamp": datetime.utcnow(),
+                "user": user_email,
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "process_time": f"{process_time:.4f}s",
+            }
+            # Simpan ke koleksi logs di MongoDB (Non-blocking idealnya)
+            await db.logs.insert_one(log_entry)
+            print(f"📝 AUDIT: {log_entry}")
 
         # Ambil User Agent atau API Key (Masked) untuk log
         user_key = request.headers.get("X-API-KEY", "Anonymous")
@@ -98,3 +126,10 @@ def register_middleware(app: FastAPI):
 
     # C. Register Exception Handlers
     app.add_exception_handler(Exception, global_exception_handler)
+
+    @app.on_event("startup")
+    async def startup_event():
+        # Inisialisasi Redis connection pool
+        r = await redis_client.connect()
+        redis_client.redis = r
+        await FastAPILimiter.init(r)

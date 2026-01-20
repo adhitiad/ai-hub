@@ -179,6 +179,15 @@ class NewsRadar:
 
         return False, "Stable"
 
+    async def get_sentiment(self, symbol: str) -> str:
+        """
+        Get sentiment analysis for a specific symbol.
+        Placeholder implementation.
+        """
+        # For now, return a simple sentiment analysis
+        return f"Neutral sentiment for {symbol}. No recent news available."
+
 
 # Singleton Instance
+news_radar = NewsRadar()
 news_radar = NewsRadar()

@@ -5,11 +5,13 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import black
+import psutil
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
 from src.api.auth import get_current_user
 from src.api.roles import UserRole, check_permission
+from src.core.database import db
 from src.core.llm_analyst import ai_fix_code
 from src.core.logger import logging
 from src.core.signal_bus import signal_bus
@@ -149,7 +151,7 @@ def trigger_manual_training(
 
     async def training_wrapper():
         logging.info(f"🦾 MANUAL TRAINING TRIGGERED BY {user['email']}")
-        await run_mass_training()
+        _ = await run_mass_training()
         logging.info("✅ MANUAL TRAINING FINISHED")
 
     background_tasks.add_task(training_wrapper)
@@ -251,9 +253,6 @@ def save_file(data: FileWriteModel, user: dict = Depends(verify_owner)):
     return {"status": "saved"}
 
 
-from src.core.database import db
-
-
 @router.get("/db/view/{collection_name}")
 async def view_database_content(
     collection_name: str, limit: int = 20, user: dict = Depends(verify_owner)
@@ -277,3 +276,69 @@ async def view_database_content(
         return data
     except Exception as e:
         raise HTTPException(500, str(e))
+
+
+router = APIRouter(prefix="/owner", tags=["Owner Super Access"])
+
+
+@router.get("/financial-health")
+async def get_financial_health(owner: dict = Depends(verify_owner)):
+    """
+    Menghitung Profit Bersih/Kotor dengan estimasi biaya infrastruktur nyata.
+    """
+    # 1. HITUNG REVENUE (Pemasukan)
+    # Panggil logika yang sama dengan admin atau query ulang
+    # (Mock data untuk contoh ini)
+    revenue_premium = 50 * 29  # 50 user premium
+    revenue_enterprise = 5 * 99  # 5 user enterprise
+    gross_revenue = revenue_premium + revenue_enterprise
+
+    # 2. HITUNG OPEX (Pengeluaran Operasional)
+
+    # A. Cloud Compute (VPS/AWS EC2)
+    # Asumsi: Base cost $20 + $5 per 10% CPU load rata-rata
+    cpu_load = psutil.cpu_percent()
+    cost_compute = 20 + (cpu_load / 10) * 5
+
+    # B. Database (MongoDB Atlas)
+    # Asumsi: $0.10 per GB storage
+    disk_usage = psutil.disk_usage("/").used / (1024**3)  # GB
+    cost_mongo = 10 + (disk_usage * 0.10)  # Base $10
+
+    # C. Redis (Cache)
+    # Asumsi: Managed Redis $15 flat
+    cost_redis = 15.0
+
+    # D. AI Inference (Groq/OpenAI)
+    # Asumsi: $0.0005 per request ke AI
+    # Kita ambil total request hari ini dari semua user (agregat db)
+    total_ai_requests = 15000  # Contoh ambil dari DB sum(requests_today)
+    cost_ai_inference = total_ai_requests * 0.0005
+
+    total_costs = cost_compute + cost_mongo + cost_redis + cost_ai_inference
+
+    # 3. PROFITABILITY
+    net_profit = gross_revenue - total_costs
+    margin = (net_profit / gross_revenue * 100) if gross_revenue > 0 else 0
+
+    return {
+        "gross_revenue": gross_revenue,
+        "costs": {
+            "total": round(total_costs, 2),
+            "breakdown": {
+                "cloud_compute": round(cost_compute, 2),
+                "database_mongo": round(cost_mongo, 2),
+                "redis_cache": round(cost_redis, 2),
+                "ai_groq_api": round(cost_ai_inference, 2),
+            },
+        },
+        "net_profit": round(net_profit, 2),
+        "profit_margin": f"{round(margin, 1)}%",
+        "status": "PROFITABLE" if net_profit > 0 else "LOSS",
+    }
+
+
+@router.get("/audit-logs")
+async def get_system_logs(limit: int = 50, owner: dict = Depends(verify_owner)):
+    # Ambil logs dari DB
+    return await db.logs.find().sort("timestamp", -1).limit(limit).to_list(limit)

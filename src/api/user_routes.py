@@ -2,6 +2,8 @@
 adalAH
 """
 
+import secrets
+
 from fastapi import APIRouter, Body, Depends
 from pydantic import BaseModel
 
@@ -11,6 +13,7 @@ from src.api.auth import get_current_user
 from src.core.agent import get_detailed_signal
 from src.core.config_assets import get_asset_info
 from src.core.database import fix_id, users_collection
+from src.core.redis_client import redis_client
 
 router = APIRouter(prefix="/user", tags=["User Data"])
 
@@ -122,3 +125,18 @@ async def update_telegram_id(
         "status": "success",
         "message": "Telegram ID saved. You will verify signals now.",
     }
+
+
+@router.post("/generate-telegram-code")
+async def generate_telegram_bind_code(user: dict = Depends(get_current_user)):
+    """Generate 6-digit code untuk binding Telegram"""
+    code = secrets.token_hex(3).upper()  # Contoh: A1B2C3
+
+    # Simpan di Redis selama 5 menit: KEY=CODE, VALUE=EMAIL
+    await redis_client.set(f"tg_bind:{code}", user["email"], ex=300)
+
+    await users_collection.update_one(
+        {"_id": user["_id"]}, {"$set": {"telegram_bind_code": code}}
+    )
+
+    return {"code": code, "bot_link": "https://t.me/NamaBotAnda_Bot"}

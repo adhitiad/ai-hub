@@ -74,6 +74,51 @@ class RedisManager:
             return {k: json.loads(v) for k, v in all_data.items()}
         return {}
 
+    async def get(self, key: str) -> Optional[str]:
+        if not self.redis:
+            await self.connect()
+
+        redis_conn = self.redis
+        if redis_conn:
+            return await redis_conn.get(key)  # type: ignore[misc]
+        return None
+
+    async def incr(self, key: str) -> int:
+        if not self.redis:
+            await self.connect()
+
+        redis_conn = self.redis
+        if redis_conn:
+            return await redis_conn.incr(key)  # type: ignore[misc]
+        return 0
+
+    async def set(self, key: str, value: str, ex: Optional[int] = None) -> bool:
+        if not self.redis:
+            await self.connect()
+
+        redis_conn = self.redis
+        if redis_conn:
+            return await redis_conn.set(key, value, ex=ex)  # type: ignore[misc]
+        return False
+
+    async def expire(self, key: str, time: int) -> bool:
+        if not self.redis:
+            await self.connect()
+
+        redis_conn = self.redis
+        if redis_conn:
+            return await redis_conn.expire(key, time)  # type: ignore[misc]
+        return False
+
+    async def delete(self, key: str) -> int:
+        if not self.redis:
+            await self.connect()
+
+        redis_conn = self.redis
+        if redis_conn:
+            return await redis_conn.delete(key)  # type: ignore[misc]
+        return 0
+
 
 # Global Instance
 redis_client = RedisManager()  # Global Instance
