@@ -6,16 +6,20 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from stable_baselines3 import PPO
+from stable_baselines3.common.vec_env import DummyVecEnv
 
 # --- 2. ADVANCED ANALYSIS ---
-from src.core.bandarmology import analyze_bandar_flow
+# Update import
+from src.core.bandarmology import Bandarmology, analyze_bandar_flow
 
 # --- 1. DATA & ASSETS ---
 from src.core.config_assets import get_asset_info
+from src.core.cryto_analysis import CryptoAnalyst
 from src.core.data_loader import fetch_data_async  # [UPDATE] Async Loader
 
 # IMPORT BARU: Gunakan logic fitur terpusat
 from src.core.feature_enginering import enrich_data, get_model_input
+from src.core.forex_engine import ForexEngine
 from src.core.logger import logger
 from src.core.market_structure import check_mtf_trend, detect_insider_volume
 from src.core.model_loader import ModelCache
@@ -24,6 +28,7 @@ from src.core.pattern_recognizer import detect_chart_patterns
 
 # --- 3. RISK & MONEY MANAGEMENT ---
 from src.core.risk_manager import risk_manager
+from src.core.rl_environment import TradingEnvironment as TradingEnv
 from src.core.scoring import calculate_technical_score
 from src.core.smart_money import analyze_smart_money
 from src.core.vector_db import recall_similar_events
@@ -65,13 +70,13 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         asset_type = info.get("type", "forex")
         category = info.get("category", "forex").lower()
         # overide stock indo mengandung ".JK"
-        is_stock_indo = asset_type == "stock_indo" and ".JK" in symbol
+        is_stock_indo = asset_type == "stock_indo" or ".JK" in symbol
         if is_stock_indo:
             asset_type = "stock_indo"
             category = "stock_indo"
 
         # Override jika simbol mengandung '/' (Ciri khas Crypto di CCXT)
-        is_crypto = asset_type == "crypto" or "/" in symbol
+        is_crypto = (asset_type == "crypto" or "/" in symbol) and not is_stock_indo
         if is_crypto:
             asset_type = "crypto"
             category = "crypto"
@@ -350,8 +355,136 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         return {"error": f"Agent Error ({symbol}): {str(e)}"}
 
 
-# Test Runner (Optional)
-def test_agent():
-    # Test cases can be added here
-    pass
-    pass
+# Lokasi penyimpanan model otak AI
+MODEL_PATH = "models/ai_trader_ppo"
+
+
+class TradingAgent:
+    """
+    Agen Cerdas berbasis Reinforcement Learning (PPO).
+    Mampu belajar sendiri (Training) dan memberi sinyal (Predict).
+    """
+
+    def __init__(self):
+        self.model = None
+        self.stock_brain = Bandarmology()
+        self.crypto_brain = CryptoAnalyst()
+        self.forex_brain = ForexEngine()
+        self.load_brain()
+
+    def load_brain(self):
+        """Memuat model jika sudah ada"""
+        if os.path.exists(f"{MODEL_PATH}.zip"):
+            try:
+                self.model = PPO.load(MODEL_PATH)
+                logger.info("🧠 AI Brain Loaded Successfully.")
+            except Exception as e:
+                logger.error(f"❌ Failed to load AI Brain: {e}")
+        else:
+            logger.info("⚠️ No AI Brain found. Need training first.")
+
+    def train_self(self, df: pd.DataFrame, timesteps=10000):
+        """
+        Proses Self-Learning.
+        AI akan dimasukkan ke dalam simulasi (Env) menggunakan data df.
+        Dia akan mencoba ribuan kali trading sampai menemukan pola terbaik.
+        """
+        if df.empty:
+            logger.warning("Empty data provided for training.")
+            return
+
+        logger.info(f"🏋️ Starting Training Session ({timesteps} steps)...")
+
+        # 1. Buat Environment dari data
+        env = DummyVecEnv([lambda: TradingEnv(df)])
+
+        # 2. Inisialisasi Model (Buat baru atau lanjut belajar)
+        if self.model is None:
+            self.model = PPO("MlpPolicy", env, verbose=1)
+        else:
+            self.model.set_env(env)
+
+        # 3. Mulai Belajar
+        self.model.learn(total_timesteps=timesteps)
+
+        # 4. Simpan Otak Baru
+        os.makedirs("models", exist_ok=True)
+        self.model.save(MODEL_PATH)
+        logger.info("✅ Training Finished. Brain Updated & Saved.")
+
+    def _consult_rl_model(self, market_data):
+        """
+        Konsultasi dengan model RL (PPO) untuk keputusan trading.
+        """
+        if self.model is None:
+            return {"action": "HOLD", "reason": "AI not trained yet"}
+
+        # Format data agar sesuai dengan input Environment
+        # [Close(Norm), RSI, MACD, BandarFlow, Volatility, PositionStatus]
+        # Asumsi saat ini tidak pegang barang (PositionStatus = 0) untuk sinyal awal
+        obs = np.array(
+            [
+                market_data.get("close_scaled", 0),
+                market_data.get("rsi", 50) / 100,
+                market_data.get("macd", 0),
+                market_data.get("bandar_score", 0),
+                market_data.get("volatility", 0),
+                market_data.get("has_position", 0),  # Kirim 1 jika user punya barang
+            ],
+            dtype=np.float32,
+        )
+
+        # Prediksi
+        action_code, _ = self.model.predict(obs, deterministic=True)
+
+        # Mapping Kode ke Bahasa Manusia
+        actions_map = {0: "HOLD", 1: "BUY", 2: "SELL"}
+        action_str = actions_map.get(int(action_code), "HOLD")
+
+        return {
+            "action": action_str,
+            "reason": f"AI PPO Policy Decision based on Market State",
+            "raw_action": int(action_code),
+            "features_used": obs,
+        }
+
+    def get_action(self, market_data: dict) -> dict:
+        """
+        Fungsi untuk Real-time Inference (API).
+        Input: Data pasar detik ini (Close, RSI, Bandar, dll).
+        Output: Keputusan (BUY/SELL/HOLD).
+        """
+        asset_type = market_data.get("asset_type", "STOCK")  # Default STOCK
+        symbol = market_data.get("symbol", "")
+
+        analysis_result = {}
+
+        # --- ROUTING LOGIC ---
+        if asset_type == "CRYPTO":
+            analysis_result = self.crypto_brain.analyze(
+                symbol, market_data.get("price", 0.0)
+            )
+
+        elif asset_type == "FOREX":
+            analysis_result = self.forex_brain.analyze_strength(symbol)
+
+        else:  # STOCK
+            analysis_result = self.stock_brain.analyze_broker_summary(symbol)
+
+        # Gabungkan hasil analisis spesifik dengan RL Agent Decision
+        # (RL Agent logic tetap sama, dia hanya butuh angka input)
+        rl_decision = self._consult_rl_model(market_data)
+
+        return {
+            "action": rl_decision["action"],
+            "raw_action": rl_decision.get("raw_action", 0),
+            "reason": rl_decision["reason"],
+            "features_used": rl_decision.get("features_used", []),
+            "final_action": rl_decision["action"],
+            "ai_reason": rl_decision["reason"],
+            "deep_analysis": analysis_result,  # Data tambahan (OnChain/Macro/Bandar)
+        }
+
+
+# Singleton Instance agar bisa dipanggil di mana saja
+ai_agent = TradingAgent()

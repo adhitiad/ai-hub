@@ -119,6 +119,45 @@ class RedisManager:
             return await redis_conn.delete(key)  # type: ignore[misc]
         return 0
 
+    async def xadd(self, stream: str, fields: dict) -> str:
+        if not self.redis:
+            await self.connect()
+
+        redis_conn = self.redis
+        if redis_conn:
+            return await redis_conn.xadd(stream, fields)  # type: ignore[misc]
+        return ""
+
+    async def xgroup_create(self, stream: str, groupname: str, **kwargs) -> bool:
+        if not self.redis:
+            await self.connect()
+
+        redis_conn = self.redis
+        if redis_conn:
+            await redis_conn.xgroup_create(stream, groupname, **kwargs)  # type: ignore[misc]
+            return True
+        return False
+
+    async def xreadgroup(
+        self, groupname: str, consumername: str, streams: dict, **kwargs
+    ):
+        if not self.redis:
+            await self.connect()
+
+        redis_conn = self.redis
+        if redis_conn:
+            return await redis_conn.xreadgroup(groupname, consumername, streams, **kwargs)  # type: ignore[misc]
+        return []
+
+    async def xack(self, stream: str, groupname: str, *ids) -> int:
+        if not self.redis:
+            await self.connect()
+
+        redis_conn = self.redis
+        if redis_conn:
+            return await redis_conn.xack(stream, groupname, *ids)  # type: ignore[misc]
+        return 0
+
 
 # Global Instance
 redis_client = RedisManager()  # Global Instance

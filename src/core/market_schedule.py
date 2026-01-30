@@ -1,58 +1,29 @@
-from datetime import datetime, time
+from datetime import datetime
 
 import pytz
 
-# Zona Waktu Jakarta (WIB)
-JAKARTA_TZ = pytz.timezone("Asia/Jakarta")
+# Tambahkan Enum atau Konstanta
+ASSET_TYPES = ["STOCK", "CRYPTO", "FOREX"]
 
 
-def is_market_open(asset_category: str) -> bool:
-    """
-    Cek apakah pasar buka berdasarkan kategori aset.
-    Mengembalikan True jika market sedang aktif (Sesi 1 atau Sesi 2).
-    """
-    now = datetime.now(JAKARTA_TZ)
-    hour = now.hour
-    minute = now.minute
-    weekday = now.weekday()  # 0=Senin, 4=Jumat, 5=Sabtu, 6=Minggu
+class MarketSchedule:
+    def is_market_open(self, asset_type: str) -> bool:
+        now = datetime.now(pytz.utc)
 
-    # --- 1. LOGIKA FOREX (24/5) ---
-    if asset_category == "FOREX":
-        # Forex tutup di weekend (Sabtu pagi - Senin pagi waktu Indo)
-        if weekday >= 5:
-            return False
-        # High spread hours during rollover
-        if 4 <= hour <= 6:
-            return False
-        return True
+        # 1. CRYPTO: Buka 24/7
+        if asset_type == "CRYPTO":
+            return True
 
-    # --- 2. LOGIKA SAHAM INDO (IDX) ---
-    if asset_category == "STOCKS_INDO":
-        # Libur Akhir Pekan
-        if weekday >= 5:
-            return False
+        # 2. FOREX: Buka 24/5 (Tutup Sabtu-Minggu)
+        if asset_type == "FOREX":
+            return now.weekday() < 5  # 0=Senin, 4=Jumat. 5&6 Libur.
 
-        current_time = now.time()
+        # 3. STOCK (IHSG): Logic Lama (09:00 - 16:00 WIB)
+        # Asumsi server UTC, WIB = UTC+7
+        wib_hour = (now.hour + 7) % 24
+        is_weekday = now.weekday() < 5
+        # Sederhana: Buka jam 9 pagi sampai 4 sore WIB
+        return is_weekday and (9 <= wib_hour < 16)
 
-        # JADWAL JUMAT (Khusus)
-        if weekday == 4:
-            # Sesi 1: 09:00 - 11:30
-            session_1 = time(9, 0) <= current_time <= time(11, 30)
-            # Sesi 2: 14:00 - 15:50 (Kita stop sebelum Pre-closing biar aman)
-            session_2 = time(14, 0) <= current_time <= time(15, 50)
 
-        # JADWAL SENIN - KAMIS
-        else:
-            # Sesi 1: 09:00 - 12:00
-            session_1 = time(9, 0) <= current_time <= time(12, 0)
-            # Sesi 2: 13:30 - 15:50
-            session_2 = time(13, 30) <= current_time <= time(15, 50)
-
-        # Pre-Opening (08:45 - 08:59) - Opsional, kita anggap buka untuk siap-siap
-        pre_opening = time(8, 45) <= current_time <= time(8, 59)
-
-        return session_1 or session_2 or pre_opening
-
-    # Default Open untuk aset lain (US Stocks, Crypto, dll)
-    return True
-    # Default Open untuk aset lain (US Stocks, Crypto, dll)
+market_schedule = MarketSchedule()

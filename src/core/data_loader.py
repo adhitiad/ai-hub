@@ -146,3 +146,11 @@ async def fetch_data_async(symbol, period="2y", interval="1h"):
 # Wrapper Sync
 def fetch_data(symbol, period="2y", interval="1h"):
     return asyncio.run(fetch_data_async(symbol, period, interval))
+
+
+def load_historical_data(symbol, period="2y", interval="1h"):
+    """
+    Load historical data (wrapper for fetch_data).
+    """
+    df = fetch_data(symbol, period, interval)
+    return df

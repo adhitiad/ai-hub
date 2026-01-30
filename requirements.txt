@@ -27,3 +27,4 @@ feedparser
 nltk
 textblob
 ccxt
+apscheduler

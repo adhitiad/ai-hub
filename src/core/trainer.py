@@ -13,7 +13,7 @@ CANDIDATE_DIR = "models/candidates"
 PRODUCTION_DIR = "models"
 
 
-def train_candidate(symbol, total_timesteps=20000):
+def train_candidate(symbol, total_timesteps=20000, save_path=None):
     """
     Melatih model baru dan menyimpannya di folder 'models/candidates'.
     Tidak langsung menimpa model live.
@@ -34,12 +34,13 @@ def train_candidate(symbol, total_timesteps=20000):
         model.learn(total_timesteps=total_timesteps)
 
         # 5. Save ke Folder KANDIDAT
-        info = get_asset_info(symbol)
-        # Handle jika asset tidak punya kategori (misal crypto/forex default)
-        category = info.get("category", "unknown").lower() if info else "common"
+        if save_path is None:
+            info = get_asset_info(symbol)
+            # Handle jika asset tidak punya kategori (misal crypto/forex default)
+            category = info.get("category", "unknown").lower() if info else "common"
 
-        safe_symbol = symbol.replace("=", "").replace("^", "")
-        save_path = f"{CANDIDATE_DIR}/{category}/{safe_symbol}.zip"
+            safe_symbol = symbol.replace("=", "").replace("^", "")
+            save_path = f"{CANDIDATE_DIR}/{category}/{safe_symbol}.zip"
 
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         model.save(save_path)
@@ -75,3 +76,15 @@ def deploy_model(symbol):
     except Exception as e:
         print(f"Deployment Error: {e}")
         return False
+
+
+def train_model_pipeline(symbol, total_timesteps=20000, save_path=None):
+    """
+    Pipeline untuk melatih model dan menyimpannya.
+    """
+    result = train_candidate(
+        symbol, total_timesteps=total_timesteps, save_path=save_path
+    )
+    if result.get("success"):
+        deploy_model(symbol)
+    return result

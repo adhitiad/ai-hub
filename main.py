@@ -20,6 +20,7 @@ from src.api.owner_ops import router as owner_router
 from src.api.pipeline_routes import router as pipeline_router
 from src.api.screener_routes import router as screener_router
 from src.api.search_routes import router as search_router
+from src.api.simulation_routes import router as sim_router
 from src.api.user_routes import router as user_router
 
 # --- Imports Core ---
@@ -30,6 +31,7 @@ from src.core.producer import signal_producer_task
 from src.core.redis_client import redis_client
 from src.core.signal_bus import signal_bus
 from src.core.socket_manager import manager, redis_connector_task
+from src.core.stream_manager import StreamManager
 from src.core.subscription_scheduler import start_scheduler
 from src.core.training_scheduler import training_scheduler_task
 
@@ -53,6 +55,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(redis_connector_task()),
         asyncio.create_task(start_scheduler()),
         asyncio.create_task(training_scheduler_task()),
+        asyncio.create_task(StreamManager().start_consumer()),
     ]
 
     yield  # Aplikasi berjalan di sini
@@ -101,6 +104,7 @@ app.include_router(screener_router)
 app.include_router(journal_router)
 app.include_router(pipeline_router)
 app.include_router(backtest_router)
+app.include_router(sim_router)
 
 
 # Catatan: Route 'new_route' dihapus karena tidak relevan untuk production.

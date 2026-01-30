@@ -8,6 +8,25 @@ from src.core.data_loader import fetch_data
 router = APIRouter(prefix="/market", tags=["Market Data & Charts"])
 
 
+from src.core.agent import ai_agent
+
+
+@router.post("/get-signal")
+async def get_signal(data):
+    decision = ai_agent.get_action(
+        {
+            "close_scaled": data.normalized_price,
+            "rsi": data.rsi,
+            "macd": data.macd,
+            "bandar_score": data.bandar_accum,
+            "volatility": data.atr,
+            "has_position": 0,
+        }
+    )
+    return decision
+    # Output: {"action": "BUY", "reason": "AI PPO Policy..."}
+
+
 @router.get("/chart/{symbol}")
 def get_advanced_chart_data(
     symbol: str, timeframe: str = "1h", user: dict = Depends(get_current_user)
