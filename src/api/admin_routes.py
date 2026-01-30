@@ -113,16 +113,29 @@ async def process_upgrade_request(
     if approval.action == "APPROVE":
         new_limit = 1000 if request_data["requested_role"] == "premium" else 999999
 
-        await users_collection.update_one(
-            {"email": request_data["user_email"]},
-            {
-                "$set": {
-                    "role": request_data["requested_role"],
-                    "daily_requests_limit": new_limit,
-                }
-            },
-        )
-        logger.info(f"✅ User {request_data['user_email']} promoted by {user['email']}")
+        # Gunakan transaction untuk mencegah race condition
+        async with await users_collection.database.client.start_session() as session:
+            async with session.start_transaction():
+                # Cek ulang status request sebelum update
+                fresh_request = await requests_collection.find_one(
+                    {"_id": obj_id}, session=session
+                )
+                if not fresh_request or fresh_request["status"] != "PENDING":
+                    raise HTTPException(400, "Request sudah diproses oleh admin lain.")
+
+                await users_collection.update_one(
+                    {"email": request_data["user_email"]},
+                    {
+                        "$set": {
+                            "role": request_data["requested_role"],
+                            "daily_requests_limit": new_limit,
+                        }
+                    },
+                    session=session,
+                )
+                logger.info(
+                    f"✅ User {request_data['user_email']} promoted by {user['email']}"
+                )
 
     # Update status request
     await requests_collection.update_one(

@@ -18,6 +18,10 @@ class InternalSignalBus:
     async def get_all_signals(self):
         return await redis_client.get_all_signals()
 
+    async def clear(self):
+        """Clear all signals from Redis"""
+        await redis_client.delete_pattern("signal:*")
+
 
 # Instance
 signal_bus = InternalSignalBus()

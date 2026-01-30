@@ -162,14 +162,14 @@ def trigger_manual_training(
 
 
 @router.post("/action/restart-bot")
-def restart_bot_logic(user: dict = Depends(verify_owner)):
+async def restart_bot_logic(user: dict = Depends(verify_owner)):
     """
     Restart logika internal (Clear Cache / Reload Config)
     Tanpa mematikan server API.
     """
     # 1. Reload Config Assets
     # 2. Clear Internal Bus
-    signal_bus._storage = {}
+    await signal_bus.clear()
     # 3. Anda bisa menambahkan logika reload module 'importlib.reload' jika mau advanced
 
     logging.warning(f"🔄 BOT LOGIC RESTARTED BY {user['email']}")

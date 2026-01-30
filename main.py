@@ -111,7 +111,6 @@ app.include_router(sim_router)
 
 
 # --- 3. Global Endpoints ---
-app = FastAPI(title="AI Trading Hub", lifespan=lifespan)
 
 
 @app.get("/")
@@ -122,9 +121,9 @@ async def root():
     return {
         "status": "online",
         "system": "AI-Hub Production Ready",
-        "version": "0.1-Alpha",
+        "version": "2.1.0",
         "environment": f"{os.getenv('ENVIRONMENT', 'development')}",
-        "server_time": datetime.now(),
+        "server_time": datetime.now(timezone.utc),
         "cpu_usage": f"{psutil.cpu_percent()}%",
         "ram_usage": f"{psutil.virtual_memory().percent}%",
         "cfg": {
