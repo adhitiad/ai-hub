@@ -9,7 +9,7 @@ router = APIRouter(prefix="/screener", tags=["Stock Screener"])
 
 
 @router.get("/run")
-def run_screener(
+async def run_screener(
     min_score: int = 0,
     rsi_max: float = 100,
     rsi_min: float = 0,
@@ -20,7 +20,7 @@ def run_screener(
     """
     Menyaring aset berdasarkan indikator yang sudah dihitung di backend (Memory).
     """
-    all_signals = signal_bus.get_all_signals()  # Data real-time dari RAM
+    all_signals = await signal_bus.get_all_signals()  # Data real-time dari RAM
     results = []
 
     for symbol, data in all_signals.items():

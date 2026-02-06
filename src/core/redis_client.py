@@ -16,7 +16,7 @@ class RedisManager:
     def __init__(self):
         self.redis_url = os.getenv(
             "REDIS_URL",
-            f"redis://{os.getenv('REDIS_USER')}:{os.getenv('REDIS_PASSWORD')}@{os.getenv('REDIS_HOST')}:{os.getenv('REDIS_PORT')}/0",
+            f"redis://{os.getenv('REDIS_USER')}:{os.getenv('REDIS_PASSWORD')}@{os.getenv('REDIS_HOST')}:{os.getenv('REDIS_PORT', '6379')}/0",
         )
         self.redis = None
 

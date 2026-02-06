@@ -1,5 +1,6 @@
 import os
 import uuid
+from typing import Any, Dict, List, Optional
 
 import chromadb
 import dotenv
@@ -23,9 +24,7 @@ client = chromadb.CloudClient(
 emb_fn = embedding_functions.DefaultEmbeddingFunction()
 
 # 3. Get or Create Collection
-news_collection = client.get_or_create_collection(
-    name="market_narratives", embedding_function=emb_fn
-)
+news_collection = client.get_or_create_collection(name="market_narratives")
 
 
 def save_news_vector(symbol, summary, sentiment_score, raw_text):
@@ -60,15 +59,28 @@ def recall_similar_events(query_text, n_results=3):
     Mencari kejadian serupa di masa lalu berdasarkan kemiripan semantik.
     """
     try:
+        # Ensure query_text is a string
+        if not isinstance(query_text, str):
+            query_text = str(query_text)
+
         results = news_collection.query(query_texts=[query_text], n_results=n_results)
 
         # Format hasil agar mudah dibaca
         history_context = []
-        if results["documents"]:
+        if (
+            results
+            and "documents" in results
+            and results["documents"]
+            and "metadatas" in results
+            and results["metadatas"]
+        ):
             docs = results["documents"][0]
             metas = results["metadatas"][0]
 
             for doc, meta in zip(docs, metas):
+                # Ensure doc is a string
+                if not isinstance(doc, str):
+                    doc = str(doc)
                 history_context.append(
                     {
                         "summary": doc,

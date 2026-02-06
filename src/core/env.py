@@ -51,7 +51,7 @@ class TradingEnv(gym.Env):
 
     def step(self, action):
         # Get current price with explicit type conversion to avoid Pylance errors
-        close_value = self.df.loc[self.current_step, "close"]
+        close_value = self.df.loc[self.current_step, "Close"]
         current_price = (
             float(close_value) if isinstance(close_value, (int, float)) else 0.0
         )

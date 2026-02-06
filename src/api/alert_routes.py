@@ -20,7 +20,7 @@ class AlertModel(BaseModel):
 @router.post("/create")
 async def create_alert(alert: AlertModel, user: dict = Depends(get_current_user)):
     new_alert = alert.dict()
-    new_alert["user_id"] = user["id"]
+    new_alert["user_id"] = str(user["_id"])
     new_alert["user_email"] = user["email"]
     new_alert["status"] = "ACTIVE"
     new_alert["created_at"] = datetime.utcnow()
@@ -49,6 +49,6 @@ async def create_alert(alert: AlertModel, user: dict = Depends(get_current_user)
 
 @router.get("/list")
 async def get_my_alerts(user: dict = Depends(get_current_user)):
-    cursor = alerts_collection.find({"user_id": user["id"]})
+    cursor = alerts_collection.find({"user_id": str(user["_id"])})
     alerts = await cursor.to_list(length=100)
     return [fix_id(a) for a in alerts]

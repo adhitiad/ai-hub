@@ -28,3 +28,4 @@ nltk
 textblob
 ccxt
 apscheduler
+python-telegram-bot

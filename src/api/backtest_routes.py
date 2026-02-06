@@ -1,7 +1,10 @@
+import traceback
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from src.api.auth import get_current_user
 from src.core.backtest_engine import run_backtest_simulation
+from src.core.logger import logger
 
 router = APIRouter(prefix="/backtest", tags=["Backtest Playground"])
 
@@ -31,5 +34,9 @@ async def run_backtest(
 
         return result
 
+    except HTTPException as e:
+        raise e
     except Exception as e:
+        logger.error(f"Backtest Error for {symbol}: {str(e)}")
+        logger.error(traceback.format_exc())
         raise HTTPException(500, f"Backtest Error: {str(e)}")

@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from src.api.auth import get_current_user
 from src.api.roles import UserRole, check_permission
 from src.core.database import db
-from src.core.llm_analyst import ai_fix_code
+from src.core.llm_analyst import LLMAnalyst
 from src.core.logger import logging
 from src.core.signal_bus import signal_bus
 
@@ -180,7 +180,9 @@ async def restart_bot_logic(user: dict = Depends(verify_owner)):
 
 
 @router.post("/files/validate-fix")
-def validate_and_fix_code(data: FileWriteModel, user: dict = Depends(verify_owner)):
+async def validate_and_fix_code(
+    data: FileWriteModel, user: dict = Depends(verify_owner)
+):
     """
     Fitur Magic:
     1. Cek Syntax
@@ -205,7 +207,8 @@ def validate_and_fix_code(data: FileWriteModel, user: dict = Depends(verify_owne
 
         # 2. Oper ke AI untuk diperbaiki
         print(f"⚠️ Syntax Error Detected: {error_msg}. Asking AI to fix...")
-        fixed_code = ai_fix_code(code, error_msg)
+        llm_analyst = LLMAnalyst()
+        fixed_code = await llm_analyst.ai_fix_code(code, error_msg)
 
         if fixed_code:
             # Validasi ulang hasil kerjaan AI
@@ -278,10 +281,7 @@ async def view_database_content(
         raise HTTPException(500, str(e))
 
 
-router = APIRouter(prefix="/owner", tags=["Owner Super Access"])
-
-
-@router.get("/financial-health")
+@router.get("/financial-health", tags=["Owner Super Access"])
 async def get_financial_health(owner: dict = Depends(verify_owner)):
     """
     Menghitung Profit Bersih/Kotor dengan estimasi biaya infrastruktur nyata.
@@ -338,7 +338,7 @@ async def get_financial_health(owner: dict = Depends(verify_owner)):
     }
 
 
-@router.get("/audit-logs")
+@router.get("/audit-logs", tags=["Owner Super Access"])
 async def get_system_logs(limit: int = 50, owner: dict = Depends(verify_owner)):
     # Ambil logs dari DB
     return await db.logs.find().sort("timestamp", -1).limit(limit).to_list(limit)

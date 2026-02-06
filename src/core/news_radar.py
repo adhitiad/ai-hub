@@ -1,4 +1,3 @@
-import logging
 import time
 from datetime import datetime
 
@@ -7,9 +6,6 @@ from bs4 import BeautifulSoup
 
 from src.core.logger import logger
 from src.core.news_collector import analyze_sentiment_vader, get_google_news_rss
-
-# Setup Logger
-logger = logging.getLogger("backend")
 
 
 class NewsRadar:
@@ -189,5 +185,4 @@ class NewsRadar:
 
 
 # Singleton Instance
-news_radar = NewsRadar()
 news_radar = NewsRadar()

@@ -2,6 +2,7 @@ import asyncio
 import json
 
 from src.core.database import db
+from src.core.logger import logger
 from src.core.redis_client import redis_client
 
 STREAM_KEY = "market_ticks_stream"
@@ -50,13 +51,14 @@ class StreamManager:
                         # Contoh: Simpan ke Mongo secara batch (simplified here)
                         # await db.market_data.insert_one({...})
 
-                        print(f"📥 Processed: {symbol} at {price}")
+                        logger.info(f"📥 Processed: {symbol} at {price}")
 
                         # 4. Acknowledge (Tandai sudah diproses)
+
                         await redis_client.xack(STREAM_KEY, GROUP_NAME, message_id)
 
             except Exception as e:
-                print(f"Stream Error: {e}")
+                logger.error(f"Stream Error: {e}")
                 await asyncio.sleep(1)
 
 

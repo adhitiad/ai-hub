@@ -31,11 +31,12 @@ async def fetch_crypto_ohlcv(symbol, timeframe="1h", limit=1000):
     Multi-Exchange Fetcher: Mencari data di berbagai exchange secara berurutan.
     """
     for ex_name in EXCHANGE_LIST:
-        exchange_class = getattr(ccxt, ex_name)
-        # enableRateLimit wajib agar tidak kena ban IP
-        exchange = exchange_class({"enableRateLimit": True})
-
+        exchange = None
         try:
+            exchange_class = getattr(ccxt, ex_name)
+            # enableRateLimit wajib agar tidak kena ban IP
+            exchange = exchange_class({"enableRateLimit": True})
+
             # logger.info(f"🔍 Checking {symbol} on {ex_name.upper()}...")
 
             # Fetch OHLCV
@@ -60,7 +61,11 @@ async def fetch_crypto_ohlcv(symbol, timeframe="1h", limit=1000):
             # Ignore error (misal symbol not found), lanjut ke exchange berikutnya
             pass
         finally:
-            await exchange.close()
+            if exchange:
+                try:
+                    await exchange.close()
+                except Exception:
+                    pass
 
     # Jika sudah cek semua exchange tapi nihil
     print(f"❌ {symbol} not found on any configured exchanges.")

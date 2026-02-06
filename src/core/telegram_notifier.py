@@ -93,19 +93,23 @@ class TelegramNotifier:
 
         args = context.args
         if not args:
-            await update.message.reply_text(
-                "Halo! Gunakan kode dari website untuk binding. Contoh: /start A1B2C3"
-            )
+            if update.message:
+                await update.message.reply_text(
+                    "Halo! Gunakan kode dari website untuk binding. Contoh: /start A1B2C3"
+                )
             return
 
         code = args[0]
+        if not update.effective_chat:
+            return
         chat_id = update.effective_chat.id
 
         # 1. Cek Redis
         email = await redis_client.get(f"tg_bind:{code}")
 
         if not email:
-            await update.message.reply_text("❌ Kode tidak valid atau kadaluarsa.")
+            if update.message:
+                await update.message.reply_text("❌ Kode tidak valid atau kadaluarsa.")
             return
 
         # 2. Update Database User
@@ -117,9 +121,10 @@ class TelegramNotifier:
         # 3. Hapus Kode
         await redis_client.delete(f"tg_bind:{code}")
 
-        await update.message.reply_text(
-            f"✅ Sukses! Akun {email} terhubung. Notifikasi akan dikirim ke sini."
-        )
+        if update.message:
+            await update.message.reply_text(
+                f"✅ Sukses! Akun {email} terhubung. Notifikasi akan dikirim ke sini."
+            )
 
     async def run_telegram_bot(self):
         """Jalankan sebagai Background Task di main.py"""
@@ -132,7 +137,8 @@ class TelegramNotifier:
         # Run polling
         await app.initialize()
         await app.start()
-        await app.updater.start_polling()
+        if app.updater:
+            await app.updater.start_polling()
 
     # Instance Global
 

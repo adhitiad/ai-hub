@@ -1,9 +1,9 @@
 import time
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 
 import redis.asyncio as redis
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi_limiter import FastAPILimiter
@@ -41,7 +41,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             user_email = request.headers.get("X-User-Email", "Anonymous")
 
             log_entry = {
-                "timestamp": datetime.utcnow(),
+                "timestamp": datetime.now(timezone.utc),
                 "user": user_email,
                 "method": request.method,
                 "path": request.url.path,
@@ -127,9 +127,20 @@ def register_middleware(app: FastAPI):
     # C. Register Exception Handlers
     app.add_exception_handler(Exception, global_exception_handler)
 
-    @app.on_event("startup")
-    async def startup_event():
-        # Inisialisasi Redis connection pool
-        r = await redis_client.connect()
-        redis_client.redis = r
-        await FastAPILimiter.init(r)
+
+# Pseudo-code logic untuk middleware.py
+async def check_trial_access(user_id):
+    # Cek pemakaian bulan ini di Redis
+    current_month = datetime.now().strftime("%Y-%m")
+    usage_key = f"trial_usage:{user_id}:{current_month}"
+
+    if redis_client.redis is None:
+        raise HTTPException(500, "Redis connection not initialized")
+
+    used_minutes = await redis_client.redis.get(usage_key) or 0
+
+    if int(used_minutes) >= 120:  # 120 Menit = 2 Jam
+        raise HTTPException(403, "Kuota Trial 2 Jam/Bulan Habis. Upgrade ke Premium.")
+
+    # Jika lolos, catat waktu request ini (misal tambah 1 menit per request atau hitung durasi sesi)
+    # Cara simpel: Asumsi 1 request = 1 poin, atau tracking WebSocket duration.

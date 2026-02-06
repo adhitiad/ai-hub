@@ -1,10 +1,8 @@
-import logging
-
 import numpy as np
 import pandas as pd
 import pandas_ta as ta
 
-logger = logging.getLogger(__name__)
+from src.core.logger import logger
 
 # --- DEFINISI FITUR BAKU ---
 # Digunakan untuk memastikan urutan kolom sama saat Training vs Live

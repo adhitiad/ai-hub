@@ -2,7 +2,7 @@ import numpy as np
 from fastapi import APIRouter, Depends, HTTPException
 
 from src.api.auth import get_current_user
-from src.core.bandarmology import analyze_bandar_flow
+from src.core.bandarmology import Bandarmology
 from src.core.data_loader import fetch_data
 
 router = APIRouter(prefix="/market", tags=["Market Data & Charts"])

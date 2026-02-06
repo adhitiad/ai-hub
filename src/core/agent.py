@@ -10,7 +10,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 
 # --- 2. ADVANCED ANALYSIS ---
 # Update import
-from src.core.bandarmology import Bandarmology, analyze_bandar_flow
+from src.core.bandarmology import Bandarmology
 
 # --- 1. DATA & ASSETS ---
 from src.core.config_assets import get_asset_info
@@ -158,7 +158,7 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
             reasons.append("History Match: Bad Pattern 📜")
 
         # 2. MARKET STRUCTURE
-        mtf_trend = check_mtf_trend(symbol, current_tf="1h")
+        mtf_trend = await check_mtf_trend(symbol, current_tf="1h")
         if base_action == "BUY":
             if mtf_trend == "UP":
                 confidence += 10
@@ -208,7 +208,7 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
 
         elif asset_type == "stock_indo":
             # --- LOGIKA BANDARMOLOGY SAHAM ---
-            bandar_result = analyze_bandar_flow(df)
+            bandar_result = Bandarmology.analyze_bandar_flow(df)
             flow_status = bandar_result["status"]
             if base_action == "BUY" and "ACCUM" in flow_status:
                 confidence += 15
@@ -469,7 +469,7 @@ class TradingAgent:
             analysis_result = self.forex_brain.analyze_strength(symbol)
 
         else:  # STOCK
-            analysis_result = self.stock_brain.analyze_broker_summary(symbol)
+            analysis_result = self.stock_brain.analyze_bandar_flow(symbol)
 
         # Gabungkan hasil analisis spesifik dengan RL Agent Decision
         # (RL Agent logic tetap sama, dia hanya butuh angka input)

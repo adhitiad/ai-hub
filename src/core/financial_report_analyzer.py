@@ -1,8 +1,11 @@
 import io
 import json
+
 from pypdf import PdfReader
+
 from src.core.llm_analyst import LLMAnalyst
 from src.core.logger import logger
+
 
 class FinancialReportAnalyzer:
     def __init__(self):
@@ -17,20 +20,29 @@ class FinancialReportAnalyzer:
             reader = PdfReader(io.BytesIO(file_content))
             text = ""
             pages_to_read = min(len(reader.pages), max_pages)
-            
+
             for i in range(pages_to_read):
                 page = reader.pages[i]
-                if page and page.extract_text():
-                    text += page.extract_text() + "\n"
-                
+                try:
+                    if page and hasattr(page, "extract_text"):
+                        page_text = page.extract_text()
+                        if page_text:
+                            text += page_text + "\n"
+                except Exception as page_e:
+                    logger.error(f"Error extracting text from page {i+1}: {page_e}")
+                    continue
+
             return text
         except Exception as e:
             logger.error(f"PDF Extraction failed: {e}")
+            import traceback
+
+            logger.error(f"Extraction error traceback: {traceback.format_exc()}")
             return ""
 
     async def analyze_report(self, symbol: str, pdf_bytes: bytes):
         """Pipeline utama: PDF -> Text -> LLM -> JSON Summary"""
-        
+
         # 1. Ekstrak Teks
         raw_text = self.extract_text_from_pdf(pdf_bytes)
         if not raw_text:
@@ -68,17 +80,20 @@ class FinancialReportAnalyzer:
             # is_json=True akan memaksa output JSON yang bersih
             response_str = await self.llm.generate_response(
                 prompt=prompt,
-                model="llama3-70b-8192", # Model yang lebih kuat untuk analisis
-                is_json=True
+                model="llama3-70b-8192",  # Model yang lebih kuat untuk analisis
+                is_json=True,
             )
-            
+
             if not response_str:
                 raise Exception("LLM returned an empty response.")
 
             return json.loads(response_str)
         except json.JSONDecodeError as e:
             logger.error(f"LLM JSON Decode failed: {e}. Raw response: {{response_str}}")
-            return {"error": "Gagal mem-parsing respons dari LLM", "raw_response": response_str}
+            return {
+                "error": "Gagal mem-parsing respons dari LLM",
+                "raw_response": response_str,
+            }
         except Exception as e:
             logger.error(f"LLM Analysis failed: {e}")
             return {"error": "Gagal menganalisis laporan", "detail": str(e)}
