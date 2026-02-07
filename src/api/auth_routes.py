@@ -39,9 +39,9 @@ async def register_user(data: RegisterModel):
             "subscription_status": "active",
             "daily_requests_limit": 50,
             "requests_today": 0,
-            "last_request_date": datetime.now().strftime("%Y-%m-%d"),
+            "last_request_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             "watchlist": [],  # <--- Embed Watchlist disini
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(timezone.utc),
         }
 
         # 3. Simpan ke MongoDB

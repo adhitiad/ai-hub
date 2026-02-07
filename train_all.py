@@ -1,8 +1,16 @@
 import asyncio
 import datetime
+import logging
 import os
+import warnings
 
 import dotenv
+
+os.environ.setdefault("GYM_DISABLE_WARNINGS", "1")
+logging.getLogger("gym").setLevel(logging.ERROR)
+# Suppress gym deprecation warning from gym package used by SB3
+warnings.filterwarnings("ignore", message=".*Gym has been unmaintained.*")
+
 import gymnasium as gym
 import shimmy
 from stable_baselines3 import PPO

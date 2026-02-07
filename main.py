@@ -20,6 +20,7 @@ from src.api.analysis_routes import router as analysis_router
 from src.api.auth_routes import router as auth_router
 from src.api.backtest_routes import router as backtest_router
 from src.api.chat_routes import router as chat_router
+from src.api.dashboard_routes import router as dashboard_router
 from src.api.journal_routes import router as journal_router
 from src.api.market_data_routes import router as market_router
 from src.api.owner_ops import router as owner_router
@@ -152,6 +153,7 @@ app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(owner_router)
 app.include_router(admin_router)  # Route Admin yang sudah dipisah
+app.include_router(dashboard_router)
 app.include_router(search_router)
 app.include_router(market_router)
 app.include_router(alert_router)

@@ -169,7 +169,7 @@ async def approve_upgrade(email: str, plan: str, admin: dict = Depends(verify_ad
             "$set": {
                 "role": plan,
                 "subscription_status": "active",
-                "upgraded_at": datetime.utcnow(),
+                "upgraded_at": datetime.now(timezone.utc),
                 "daily_requests_limit": 500 if plan == "premium" else 10000,
             }
         },
@@ -198,5 +198,5 @@ async def get_revenue_stats(admin: dict = Depends(verify_admin)):
         "total_users": sum(counts.values()),
         "breakdown": counts,
         "monthly_revenue_usd": revenue,
-        "last_updated": datetime.utcnow(),
+        "last_updated": datetime.now(timezone.utc),
     }

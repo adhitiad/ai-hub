@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
+from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -23,7 +24,7 @@ async def create_alert(alert: AlertModel, user: dict = Depends(get_current_user)
     new_alert["user_id"] = str(user["_id"])
     new_alert["user_email"] = user["email"]
     new_alert["status"] = "ACTIVE"
-    new_alert["created_at"] = datetime.utcnow()
+    new_alert["created_at"] = datetime.now(timezone.utc)
 
     # Validasi Formula Sederhana (Security)
     if alert.type == "FORMULA":
@@ -52,3 +53,19 @@ async def get_my_alerts(user: dict = Depends(get_current_user)):
     cursor = alerts_collection.find({"user_id": str(user["_id"])})
     alerts = await cursor.to_list(length=100)
     return [fix_id(a) for a in alerts]
+
+
+@router.delete("/{alert_id}")
+async def delete_alert(alert_id: str, user: dict = Depends(get_current_user)):
+    try:
+        obj_id = ObjectId(alert_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid alert id")
+
+    result = await alerts_collection.delete_one(
+        {"_id": obj_id, "user_id": str(user["_id"])}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Alert not found")
+
+    return {"status": "success", "message": "Alert deleted"}

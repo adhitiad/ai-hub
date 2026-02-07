@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 
 import black
 import psutil
+from bson import ObjectId
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -20,6 +21,16 @@ router = APIRouter(prefix="/owner", tags=["Owner"])
 BASE_DIR = Path.cwd()  # Root folder proyek
 # Direktori yang BOLEH diedit (Whitelist) agar Owner tidak salah hapus file Windows/Linux
 ALLOWED_DIRS = ["core", "api", "models", "logs"]
+
+
+def _sanitize_bson(value):
+    if isinstance(value, ObjectId):
+        return str(value)
+    if isinstance(value, dict):
+        return {k: _sanitize_bson(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_bson(v) for v in value]
+    return value
 
 
 # --- Model Data ---
@@ -270,13 +281,7 @@ async def view_database_content(
         cursor = db[collection_name].find({}).limit(limit).sort("_id", -1)
         data = await cursor.to_list(length=limit)
 
-        # Convert ObjectId to string
-        for item in data:
-            if "_id" in item:
-                item["id"] = str(item["_id"])
-                del item["_id"]
-
-        return data
+        return [_sanitize_bson(item) for item in data]
     except Exception as e:
         raise HTTPException(500, str(e))
 
@@ -341,4 +346,5 @@ async def get_financial_health(owner: dict = Depends(verify_owner)):
 @router.get("/audit-logs", tags=["Owner Super Access"])
 async def get_system_logs(limit: int = 50, owner: dict = Depends(verify_owner)):
     # Ambil logs dari DB
-    return await db.logs.find().sort("timestamp", -1).limit(limit).to_list(limit)
+    logs = await db.logs.find().sort("timestamp", -1).limit(limit).to_list(limit)
+    return [_sanitize_bson(item) for item in logs]

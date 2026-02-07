@@ -1,9 +1,12 @@
+from datetime import datetime, timezone
+
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException
-
 from src.api.auth import get_current_user
 from src.core.bandarmology import Bandarmology
 from src.core.data_loader import fetch_data
+from src.core.forex_engine import ForexEngine
+from src.core.whale_crypto import analyze_crypto_whales
 
 router = APIRouter(prefix="/market", tags=["Market Data & Charts"])
 
@@ -27,18 +30,21 @@ async def get_signal(data):
     # Output: {"action": "BUY", "reason": "AI PPO Policy..."}
 
 
-@router.get("/chart/{symbol}")
+@router.get("/chart/{symbol:path}")
 def get_advanced_chart_data(
     symbol: str, timeframe: str = "1h", user: dict = Depends(get_current_user)
 ):
     """
     Return OHLCV + Indicators + Bandar Line untuk charting frontend (TradingView/Lightweight Charts).
     """
+    import urllib.parse
+
+    decoded_symbol = urllib.parse.unquote(symbol)
     period_map = {"1d": "1y", "1h": "1mo", "15m": "5d"}
     period = period_map.get(timeframe, "2y")
 
     try:
-        df = fetch_data(symbol, period=period, interval=timeframe)
+        df = fetch_data(decoded_symbol, period=period, interval=timeframe)
 
         # Tambahan Indicator Khusus Chart
         # Misal: Garis Akumulasi Bandar (Custom Line)
@@ -101,4 +107,89 @@ def get_market_depth(symbol: str, user: dict = Depends(get_current_user)):
         "status": "MOCK_DATA (Connect Real Broker API)",
         "bids": bids,  # Antrian Beli
         "offers": offers,  # Antrian Jual
+    }
+
+
+def _format_usd(value: float) -> str:
+    sign = "+" if value >= 0 else "-"
+    abs_val = abs(value)
+    if abs_val >= 1_000_000:
+        return f"{sign}${abs_val/1_000_000:.1f}M"
+    if abs_val >= 1_000:
+        return f"{sign}${abs_val/1_000:.1f}k"
+    return f"{sign}${abs_val:.0f}"
+
+
+@router.get("/crypto/summary")
+async def get_crypto_summary(
+    symbol: str = "BTC/USDC", user: dict = Depends(get_current_user)
+):
+
+    try:
+        whale = await analyze_crypto_whales(symbol)
+        score = float(whale.get("score", 0))
+        fear_greed = max(0, min(100, round(50 + (score / 2), 1)))
+        buy_vol = float(whale.get("buy_vol", 0))
+        sell_vol = float(whale.get("sell_vol", 0))
+        net_flow = buy_vol - sell_vol
+
+        return {
+            "symbol": symbol,
+            "fear_greed": fear_greed,
+            "net_flow": _format_usd(net_flow),
+            "action": whale.get("action", "NEUTRAL"),
+            "score": round(score, 1),
+            "exchange": whale.get("exchange", ""),
+            "timestamp": datetime.now(timezone.utc),
+        }
+    except Exception:
+        return {
+            "symbol": symbol,
+            "fear_greed": 50,
+            "net_flow": "+$0",
+            "action": "NEUTRAL",
+            "score": 0,
+            "exchange": "",
+            "timestamp": datetime.now(timezone.utc),
+        }
+
+
+@router.get("/bandar/{symbol}")
+def get_bandar_summary(symbol: str, user: dict = Depends(get_current_user)):
+    df = fetch_data(symbol, period="3mo", interval="1d")
+    result = (
+        Bandarmology.analyze_bandar_flow(df)
+        if not df.empty
+        else {
+            "status": "NEUTRAL",
+            "score": 0,
+            "message": "No data",
+            "vol_ratio": 0,
+        }
+    )
+    return {
+        "symbol": symbol,
+        "status": result.get("status", "NEUTRAL"),
+        "score": result.get("score", 0),
+        "message": result.get("message", ""),
+        "vol_ratio": result.get("vol_ratio", 0),
+    }
+
+
+@router.get("/forex/summary")
+async def get_forex_summary(
+    pair: str = "USDJPY", user: dict = Depends(get_current_user)
+):
+    forex = ForexEngine()
+    data = forex.analyze_strength(pair.upper())
+    strengths = data.get("strength_meter", {})
+
+    return {
+        "pair": pair.upper(),
+        "base_currency": pair[:3].upper(),
+        "quote_currency": pair[3:].upper(),
+        "strength": strengths,
+        "signal": data.get("signal", "NEUTRAL"),
+        "session": data.get("session", ""),
+        "timestamp": datetime.now(timezone.utc),
     }

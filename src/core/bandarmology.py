@@ -85,3 +85,8 @@ class Bandarmology:
             "vol_ratio": round(vol_ratio, 2),
             "message": message,
         }
+
+
+def analyze_bandar_flow(df):
+    """Fungsi wrapper agar kompatibel dengan pemanggilan lama/test."""
+    return Bandarmology.analyze_bandar_flow(df)

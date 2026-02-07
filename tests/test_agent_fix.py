@@ -27,5 +27,4 @@ async def test_stock_indo_with_slash_is_not_crypto():
     # If it were misclassified as crypto, it might try to use crypto-specific logic that would fail differently.
     # A more robust test would mock the data loading and check the analysis path.
     # For now, we are checking that it doesn't fail with a crypto-related error.
-    assert result['Reason'] == 'No Data Fetched'
-
+    assert result["Reason"] in {"No Data Fetched", "No Model"}

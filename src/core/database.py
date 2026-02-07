@@ -1,5 +1,6 @@
 import os
 import sys
+from datetime import timezone
 
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -15,7 +16,7 @@ if not MONGO_URI:
     sys.exit(1)
 
 # --- 2. Setup Client ---
-client = AsyncIOMotorClient(MONGO_URI)
+client = AsyncIOMotorClient(MONGO_URI, tz_aware=True, tzinfo=timezone.utc)
 db = client[DB_NAME]
 
 # Definisi Collections

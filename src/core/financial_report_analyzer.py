@@ -80,7 +80,7 @@ class FinancialReportAnalyzer:
             # is_json=True akan memaksa output JSON yang bersih
             response_str = await self.llm.generate_response(
                 prompt=prompt,
-                model="llama3-70b-8192",  # Model yang lebih kuat untuk analisis
+                model="llama-3.1-70b-versatile",  # Model yang lebih kuat untuk analisis
                 is_json=True,
             )
 
@@ -89,7 +89,7 @@ class FinancialReportAnalyzer:
 
             return json.loads(response_str)
         except json.JSONDecodeError as e:
-            logger.error(f"LLM JSON Decode failed: {e}. Raw response: {{response_str}}")
+            logger.error(f"LLM JSON Decode failed: {e}. Raw response: {response_str}")
             return {
                 "error": "Gagal mem-parsing respons dari LLM",
                 "raw_response": response_str,

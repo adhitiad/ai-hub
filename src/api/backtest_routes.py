@@ -21,13 +21,13 @@ async def run_backtest(
     Contoh: /backtest/run?symbol=BBCA.JK&period=6mo
     """
     # Validasi input
-    valid_periods = ["1mo", "3mo", "6mo", "1y", "2y"]
+    valid_periods = ["1mo", "3mo", "6mo", "1y", "2y", "5y"]
     if period not in valid_periods:
         raise HTTPException(400, f"Period harus salah satu dari {valid_periods}")
 
     try:
         # Panggil Engine (Synchronous tapi cepat karena hanya inference)
-        result = run_backtest_simulation(symbol, period, balance)
+        result = await run_backtest_simulation(symbol, period, balance)
 
         if "error" in result:
             raise HTTPException(400, result["error"])

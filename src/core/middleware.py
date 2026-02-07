@@ -49,8 +49,11 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 "process_time": f"{process_time:.4f}s",
             }
             # Simpan ke koleksi logs di MongoDB (Non-blocking idealnya)
-            await db.logs.insert_one(log_entry)
-            print(f"📝 AUDIT: {log_entry}")
+            try:
+                await db.logs.insert_one(log_entry)
+                print(f"📝 AUDIT: {log_entry}")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to write audit log: {e}")
 
         # Ambil User Agent atau API Key (Masked) untuk log
         user_key = request.headers.get("X-API-KEY", "Anonymous")

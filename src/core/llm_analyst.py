@@ -19,7 +19,7 @@ class LLMAnalyst:
     async def generate_response(
         self,
         prompt: str,
-        model: str = "llama-3.1-8b-instant",
+        model: str = "meta-llama/llama-guard-4-12b",
         temperature: float = 1,
         is_json: bool = False,
     ) -> str | None:
@@ -86,12 +86,12 @@ class LLMAnalyst:
         """
         try:
             completion = await self.client.chat.completions.create(
-                model="llama3-70b-8192",
+                model="meta-llama/llama-guard-4-12b",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_content},
                 ],
-                temperature=0.2,
+                temperature=0.1,
                 response_format={"type": "json_object"},
             )
             content = completion.choices[0].message.content
@@ -128,7 +128,7 @@ class LLMAnalyst:
         """
         try:
             completion = await self.client.chat.completions.create(
-                model="llama-3.1-8b-instant",
+                model="meta-llama/llama-guard-4-12b",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_content},

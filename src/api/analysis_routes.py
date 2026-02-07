@@ -37,12 +37,14 @@ async def analyze_financial_report(
         "uploaded_at": datetime.datetime.now(datetime.timezone.utc),
         "uploaded_by": user["email"],
     }
-    # await db.reports.insert_one(report_doc)
+    await db.reports.insert_one(report_doc)
 
     return result
 
 
 @router.get("/latest/{symbol}")
 async def get_latest_analysis(symbol: str):
-    # Mock return (nanti ambil dari DB)
-    return await db.reports.find_one({"symbol": symbol}, sort=[("uploaded_at", -1)])
+    # Ambil dari DB
+    return await db.reports.find_one(
+        {"symbol": symbol.upper()}, sort=[("uploaded_at", -1)]
+    )

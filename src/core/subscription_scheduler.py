@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 
 from src.core.database import users_collection
 from src.core.logger import logger
@@ -11,6 +11,14 @@ from src.core.logger import logger
 #     # Di sini panggil fungsi send_email() atau send_whatsapp()
 
 
+def _ensure_utc(dt_value: datetime | None):
+    if dt_value is None:
+        return None
+    if dt_value.tzinfo is None:
+        return dt_value.replace(tzinfo=timezone.utc)
+    return dt_value.astimezone(timezone.utc)
+
+
 async def notify_expiring_users():
     """
     Mengirim notifikasi HANYA 1x sehari berdasarkan aturan:
@@ -19,7 +27,7 @@ async def notify_expiring_users():
     - 3 Bulan   (90 hari) -> Notif H-14 (2 Minggu)
     - 9 Bulan+  (Promo)   -> Notif H-30 (1 Bulan)
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     today_str = now.strftime("%Y-%m-%d")
 
     logger.info("📩 Checking Expiry Notifications...")
@@ -35,7 +43,7 @@ async def notify_expiring_users():
     )
 
     async for user in cursor:
-        end_date = user.get("subscription_end_date")
+        end_date = _ensure_utc(user.get("subscription_end_date"))
         if not end_date:
             continue
 
@@ -94,7 +102,7 @@ async def notify_status_updates():
 
     Aturan: 1 Hari Max 1x Kirim (Cek last_expiry_notification).
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     today_str = now.strftime("%Y-%m-%d")
 
     # --- KASUS 1: MEMBERI TAHU MASA BERLANGGANAN SUDAH HABIS ---
@@ -133,9 +141,9 @@ async def notify_status_updates():
 
     async for user in cursor_promo:
         # Cek tanggal pembuatan akun, jika baru daftar hari ini, kirim welcome message
-        created_at = user.get("created_at")
+        created_at = _ensure_utc(user.get("created_at"))
         is_new_user = False
-        if created_at and isinstance(created_at, datetime):
+        if created_at:
             if (now - created_at).days <= 1:
                 is_new_user = True
 
@@ -167,7 +175,7 @@ async def check_subscriptions():
     1. Apakah masa aktif bonus (Enterprise) sudah habis? -> Downgrade ke Premium.
     2. Apakah masa aktif langganan utama sudah habis? -> Downgrade ke Free.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     logger.info("⏳ Running Subscription Scheduler Check...")
 
     # --- 1. CEK BONUS EXPIRY (Enterprise -> Premium) ---

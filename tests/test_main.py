@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 # --- SETUP MOCK SEBELUM IMPORT APP ---
@@ -17,7 +18,7 @@ with patch("motor.motor_asyncio.AsyncIOMotorClient", return_value=mock_mongo_cli
 
 
 # --- FIXTURE UNTUK CLIENT ---
-@pytest.fixture
+@pytest_asyncio.fixture
 async def client():
     # Menggunakan ASGITransport untuk mentest aplikasi ASGI (FastAPI) secara langsung tanpa server berjalan
     async with AsyncClient(
@@ -57,19 +58,15 @@ async def test_root_endpoint(client):
     assert response.status_code in [200, 404]
 
 
-@pytest.mark.asyncio
-async def test_routers_are_mounted(client):
+def test_routers_are_mounted():
     """
-    Test untuk memastikan router (seperti auth, users) sudah terpasang.
-    Kita tembak endpoint sembarang di router itu.
-    Harapannya: 401 (Unauthorized), 405 (Method Not Allowed), atau 400 (Bad Request).
-    Bukan 404 (Not Found) -> Kalau 404 berarti router lupa di-include.
+    Test untuk memastikan router (seperti auth) sudah terpasang.
+    Validasi dilakukan lewat daftar route, tanpa memanggil dependency eksternal.
     """
-    # Coba tembak endpoint auth login
-    # Kita tidak kirim data, jadi harapannya 422 (Validation Error) atau 405
-    # Yang penting BUKAN 404.
-    response = await client.post("/auth/token")
-    assert response.status_code != 404, "Router Auth sepertinya belum di-mount"
+    route_paths = {route.path for route in app.routes}
+    assert (
+        "/auth/login" in route_paths or "/auth/register" in route_paths
+    ), "Router Auth sepertinya belum di-mount"
 
 
 @pytest.mark.asyncio

@@ -13,7 +13,7 @@ class TestBandarmology:
         df = pd.DataFrame(
             {
                 "Close": [100] * 24 + [102],  # Price up 2%
-                "Volume": [1000] * 19 + [2000] * 5,  # Volume spike in last 5 days
+                "Volume": [1000] * 20 + [2000] * 5,  # Volume spike in last 5 days
                 "High": [101] * 25,
                 "Low": [99] * 25,
                 "Open": [100] * 25,
@@ -37,10 +37,10 @@ class TestBandarmology:
         dates = pd.date_range("2023-01-01", periods=25)
         df = pd.DataFrame(
             {
-                "Close": [102] * 24 + [100],  # Price down 2%
-                "Volume": [1000] * 19 + [2000] * 5,  # Volume spike
+                "Close": [102] * 24 + [99],  # Price down > 2%
+                "Volume": [1000] * 20 + [2000] * 5,  # Volume spike
                 "High": [103] * 25,
-                "Low": [101] * 25,
+                "Low": [98] * 25,
                 "Open": [102] * 25,
             },
             index=dates,
@@ -78,9 +78,9 @@ class TestBandarmology:
         dates = pd.date_range("2023-01-01", periods=25)
         df = pd.DataFrame(
             {
-                "Close": [100] * 24 + [102],  # Price up
-                "Volume": [1000] * 24 + [800],  # Low volume
-                "High": [103] * 25,
+                "Close": [100] * 24 + [103],  # Price up > 2%
+                "Volume": [1000] * 24 + [500],  # Low volume
+                "High": [104] * 25,
                 "Low": [101] * 25,
                 "Open": [100] * 25,
             },

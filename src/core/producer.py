@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 
 from src.core.agent import get_detailed_signal
 from src.core.data_loader import fetch_data_async
@@ -129,7 +129,7 @@ async def process_single(asset_info):
                     "sl": data["Sl"],
                     "lot_size": data["LotSize"],
                     "status": "OPEN",
-                    "created_at": datetime.utcnow(),
+                    "created_at": datetime.now(timezone.utc),
                 }
 
                 # CRITICAL UPDATE: Jangan await insert_one secara langsung!

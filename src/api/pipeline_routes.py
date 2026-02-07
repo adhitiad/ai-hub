@@ -35,5 +35,8 @@ def get_optimization_status(symbol: str):
     # untuk dicek progressnya.
     # Untuk sekarang kita return info statis.
     return {
-        "status": "Processing logic not implemented (Need Task Queue like Celery/Redis)"
+        "symbol": symbol,
+        "status": "idle",
+        "progress": 0,
+        "message": "Processing logic not implemented (Need Task Queue like Celery/Redis)",
     }

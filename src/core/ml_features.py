@@ -7,7 +7,6 @@ import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
-from train_rf import enrich_data, get_model_input
 
 from src.core.feature_enginering import enrich_data, get_model_input
 from src.core.logger import logger
@@ -84,6 +83,8 @@ class MarketMLAnalyzer:
         """
         Menggunakan Fitur Sentral untuk Prediksi
         """
+        if df.isna().any().any():
+            return 0
         if self.rf_model is None:
             return 0
 
@@ -100,11 +101,8 @@ class MarketMLAnalyzer:
             # 3. Format Fitur Sesuai Training (CRITICAL STEP)
             features_df = get_model_input(last_row_df)
 
-            # Konversi ke numpy array
-            features_array = features_df.values
-
             # 4. Predict
-            win_prob = self.rf_model.predict_proba(features_array)[0][1]
+            win_prob = self.rf_model.predict_proba(features_df)[0][1]
             return int((win_prob - 0.5) * 200)
 
         except Exception as e:

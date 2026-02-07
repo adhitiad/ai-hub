@@ -5,17 +5,17 @@ import pandas as pd
 from stable_baselines3 import PPO
 
 from src.core.config_assets import get_asset_info
-from src.core.data_loader import fetch_data
+from src.core.data_loader import fetch_data_async
 
 MODELS_DIR = "models"
 
 
-def run_backtest_simulation(symbol, period="2y", initial_balance=100000000):
+async def run_backtest_simulation(symbol, period="2y", initial_balance=100000000):
     """
     Menjalankan simulasi AI pada data masa lalu.
     """
     # 1. Ambil Data Historis
-    df = fetch_data(symbol, period=period, interval="1h")
+    df = await fetch_data_async(symbol, period=period, interval="1h")
     if df.empty:
         return {"error": "Data historis tidak ditemukan"}
 
@@ -97,20 +97,66 @@ def run_backtest_simulation(symbol, period="2y", initial_balance=100000000):
         equity_curve.append({"time": str(date), "value": round(balance, 2)})
 
     # 4. Ringkasan Hasil
-    total_trades = len([t for t in trades if t["type"] == "EXIT SELL"])
-    win_trades = len([t for t in trades if "pnl" in t and t["pnl"] > 0])
+    exit_trades = [t for t in trades if t.get("type") == "EXIT SELL"]
+    total_trades = len(exit_trades)
+    win_trades = len([t for t in exit_trades if t.get("pnl", 0) > 0])
     win_rate = (win_trades / total_trades * 100) if total_trades > 0 else 0
 
     roi = ((balance - initial_balance) / initial_balance) * 100
+    total_return = balance - initial_balance
+    total_return_percent = roi
+
+    pnl_values = [t.get("pnl", 0) for t in exit_trades]
+    gross_profit = sum(p for p in pnl_values if p > 0)
+    gross_loss = abs(sum(p for p in pnl_values if p < 0))
+    profit_factor = round(gross_profit / gross_loss, 2) if gross_loss > 0 else 999
+
+    # Max drawdown (percentage)
+    peak = None
+    max_drawdown = 0.0
+    for point in equity_curve:
+        value = point.get("value", 0)
+        if peak is None or value > peak:
+            peak = value
+        if peak and peak > 0:
+            drawdown = (value - peak) / peak * 100
+            max_drawdown = min(max_drawdown, drawdown)
+    max_drawdown = abs(round(max_drawdown, 2))
+
+    # Format trades for frontend
+    formatted_trades = []
+    for t in trades:
+        action = "BUY" if "BUY" in t.get("type", "") else "SELL"
+        formatted_trades.append(
+            {
+                "date": t.get("date"),
+                "action": action,
+                "price": t.get("price", 0),
+                "pnl": t.get("pnl"),
+            }
+        )
+
+    # Format equity curve for frontend
+    equity_curve_formatted = [
+        {"date": p.get("time"), "balance": p.get("value")} for p in equity_curve
+    ]
 
     return {
         "symbol": symbol,
         "period": period,
+        "balance": initial_balance,
         "initial_balance": initial_balance,
         "final_balance": round(balance, 2),
-        "roi_percent": f"{round(roi, 2)}%",
+        "total_return": round(total_return, 2),
+        "total_return_percent": round(total_return_percent, 2),
+        "win_rate": round(win_rate, 2),
         "total_trades": total_trades,
-        "win_rate": f"{round(win_rate, 1)}%",
-        "trades_log": trades[-20:],  # Tampilkan 20 trade terakhir saja biar ringan
-        "equity_curve": equity_curve,  # Untuk Chart
+        "profit_factor": profit_factor,
+        "max_drawdown": max_drawdown,
+        "trades": formatted_trades,
+        "equity_curve": equity_curve_formatted,
+        # Legacy fields for backward compatibility
+        "roi_percent": f"{round(roi, 2)}%",
+        "trades_log": trades[-20:],
+        "equity_curve_raw": equity_curve,
     }

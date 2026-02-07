@@ -7,9 +7,17 @@ Hasil training akan disimpan di folder models dengan nama file yang informatif.
 import argparse
 import asyncio
 import datetime
+import logging
 import os
+import warnings
 
 import dotenv
+
+os.environ.setdefault("GYM_DISABLE_WARNINGS", "1")
+logging.getLogger("gym").setLevel(logging.ERROR)
+# Suppress gym deprecation warning from gym package used by SB3
+warnings.filterwarnings("ignore", message=".*Gym has been unmaintained.*")
+
 import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor

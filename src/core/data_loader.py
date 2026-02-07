@@ -30,6 +30,21 @@ async def fetch_crypto_ohlcv(symbol, timeframe="1h", limit=1000):
     """
     Multi-Exchange Fetcher: Mencari data di berbagai exchange secara berurutan.
     """
+    async def _close_exchange(exchange):
+        if not exchange:
+            return
+        try:
+            await exchange.close()
+        except Exception:
+            pass
+        # Extra safety for some exchanges/aiohttp sessions
+        session = getattr(exchange, "session", None)
+        if session:
+            try:
+                await session.close()
+            except Exception:
+                pass
+
     for ex_name in EXCHANGE_LIST:
         exchange = None
         try:
@@ -54,18 +69,14 @@ async def fetch_crypto_ohlcv(symbol, timeframe="1h", limit=1000):
                 df.set_index("Date", inplace=True)
                 del df["timestamp"]
 
-                await exchange.close()
+                await _close_exchange(exchange)
                 return df
 
         except Exception:
             # Ignore error (misal symbol not found), lanjut ke exchange berikutnya
             pass
         finally:
-            if exchange:
-                try:
-                    await exchange.close()
-                except Exception:
-                    pass
+            await _close_exchange(exchange)
 
     # Jika sudah cek semua exchange tapi nihil
     print(f"❌ {symbol} not found on any configured exchanges.")
@@ -150,7 +161,21 @@ async def fetch_data_async(symbol, period="2y", interval="1h"):
 
 # Wrapper Sync
 def fetch_data(symbol, period="2y", interval="1h"):
-    return asyncio.run(fetch_data_async(symbol, period, interval))
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(fetch_data_async(symbol, period, interval))
+
+    # Fallback: if called inside a running event loop, execute in a separate thread.
+    # This prevents "asyncio.run() cannot be called from a running event loop".
+    import concurrent.futures
+
+    def _runner():
+        return asyncio.run(fetch_data_async(symbol, period, interval))
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_runner)
+        return future.result()
 
 
 def load_historical_data(symbol, period="2y", interval="1h"):

@@ -7,10 +7,18 @@ Hasil training akan disimpan di folder models dengan nama file yang informatif.
 import argparse
 import asyncio
 import datetime
+import logging
 import os
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 
 import dotenv
+
+os.environ.setdefault("GYM_DISABLE_WARNINGS", "1")
+logging.getLogger("gym").setLevel(logging.ERROR)
+# Suppress gym deprecation warning from gym package used by SB3
+warnings.filterwarnings("ignore", message=".*Gym has been unmaintained.*")
+
 import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
@@ -143,12 +151,8 @@ async def run_batch_training(
     return success_count, failed_count
 
 
-def get_assets_by_category(category: str):
-    """
-    Mendapatkan list asset berdasarkan kategori.
-    """
-    loop = asyncio.get_event_loop()
-    assets = loop.run_until_complete(assets_collection.find({}).to_list(length=1000))
+async def _get_assets_by_category(category: str):
+    assets = await assets_collection.find({}).to_list(length=1000)
     assets = [a for a in assets if a.get("category", "").lower() == category.lower()]
     return [a["symbol"] for a in assets]
 
@@ -200,12 +204,9 @@ def main():
     args = parser.parse_args()
 
     if args.list_categories:
-        loop = asyncio.get_event_loop()
-        assets = loop.run_until_complete(
-            assets_collection.find({}).to_list(length=1000)
-        )
+        assets = asyncio.run(assets_collection.find({}).to_list(length=1000))
         categories = set(a.get("category", "UNKNOWN").lower() for a in assets)
-        print("📋 Available categories:")
+        print("Available categories:")
         for category in sorted(categories):
             count = sum(1 for a in assets if a.get("category", "").lower() == category)
             print(f"  - {category} ({count} assets)")
@@ -214,7 +215,7 @@ def main():
     # Tentukan list symbol yang akan dilatih
     symbols = []
     if args.category:
-        symbols = get_assets_by_category(args.category)
+        symbols = asyncio.run(_get_assets_by_category(args.category))
         if not symbols:
             logger.error(f"❌ No assets found in category: {args.category}")
             return 1

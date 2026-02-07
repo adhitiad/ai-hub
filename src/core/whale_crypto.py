@@ -17,6 +17,20 @@ async def analyze_crypto_whales(symbol: str):
     Menganalisis pergerakan Paus di pasar Spot Crypto.
     Logika: Menghitung Net Volume dari transaksi besar (Aggressive Buys vs Sells).
     """
+    async def _close_exchange(exchange):
+        if not exchange:
+            return
+        try:
+            await exchange.close()
+        except Exception:
+            pass
+        session = getattr(exchange, "session", None)
+        if session:
+            try:
+                await session.close()
+            except Exception:
+                pass
+
     for ex_name in EXCHANGE_LIST:
         exchange = None
         try:
@@ -29,7 +43,7 @@ async def analyze_crypto_whales(symbol: str):
             trades = await exchange.fetch_trades(symbol, limit=1000)
 
             if not trades:
-                await exchange.close()
+                await _close_exchange(exchange)
                 continue
 
             # 2. Proses Data
@@ -40,7 +54,7 @@ async def analyze_crypto_whales(symbol: str):
             whale_trades = df[df["cost"] >= WHALE_THRESHOLD].copy()
 
             if whale_trades.empty:
-                await exchange.close()
+                await _close_exchange(exchange)
                 continue
 
             # 4. Hitung Buy vs Sell Volume Paus
@@ -66,7 +80,7 @@ async def analyze_crypto_whales(symbol: str):
                 action = "SELL"
                 reason = f"🐋 Whales Dumping (-${abs(net_flow)/1000:.1f}k)"
 
-            await exchange.close()
+            await _close_exchange(exchange)
             return {
                 "action": action,
                 "score": whale_score,
@@ -78,11 +92,7 @@ async def analyze_crypto_whales(symbol: str):
 
         except Exception as e:
             logger.error(f"Whale Analysis Error ({symbol} on {ex_name}): {e}")
-            if exchange:
-                try:
-                    await exchange.close()
-                except:
-                    pass
+            await _close_exchange(exchange)
             continue
 
     return {"action": "NEUTRAL", "score": 0, "reason": "No exchange available"}

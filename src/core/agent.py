@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import glob
 import os
 
@@ -13,7 +14,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from src.core.bandarmology import Bandarmology
 
 # --- 1. DATA & ASSETS ---
-from src.core.config_assets import get_asset_info
+from src.core.config_assets import ASSETS, get_asset_info
 from src.core.cryto_analysis import CryptoAnalyst
 from src.core.data_loader import fetch_data_async  # [UPDATE] Async Loader
 
@@ -22,12 +23,11 @@ from src.core.feature_enginering import enrich_data, get_model_input
 from src.core.forex_engine import ForexEngine
 from src.core.logger import logger
 from src.core.market_structure import check_mtf_trend, detect_insider_volume
-from src.core.model_loader import ModelCache
 from src.core.money_management import calculate_kelly_lot, check_correlation_risk
 from src.core.pattern_recognizer import detect_chart_patterns
 
 # --- 3. RISK & MONEY MANAGEMENT ---
-from src.core.risk_manager import risk_manager
+from src.core.risk_manager import check_circuit_breaker, risk_manager
 from src.core.rl_environment import TradingEnvironment as TradingEnv
 from src.core.scoring import calculate_technical_score
 from src.core.smart_money import analyze_smart_money
@@ -42,6 +42,8 @@ except ImportError:
     pass
 
 MODEL_DIR = "models"
+MODEL_BRAIN_PREFIX = "ai_trader_ppo"
+fetch_data = fetch_data_async
 
 
 async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
@@ -53,16 +55,15 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         # --- A. SETUP & VALIDATION ---
         if not asset_info:
             info = get_asset_info(symbol)
-            if not info:
-                # Fallback jika config tidak ditemukan
-                info = {
-                    "symbol": symbol,
-                    "type": (
-                        "crypto"
-                        if "/" in symbol
-                        else "forex" if ".JK" in symbol else "stock_indo"
-                    ),
-                }
+            is_known_symbol = any(symbol in items for items in ASSETS.values())
+            has_known_pattern = (
+                symbol.endswith(".JK")
+                or "=X" in symbol
+                or "/" in symbol
+                or "-" in symbol
+            )
+            if not info or (not is_known_symbol and not has_known_pattern):
+                return {"error": "Asset not config"}
         else:
             info = asset_info
 
@@ -85,36 +86,67 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
 
         # --- B. GLOBAL RISK CHECKS ---
         # Pastikan fungsi-fungsi risk manager ini async atau dipanggil dengan benar
-        can_trade, reject_reason = (
-            await risk_manager.can_trade()
-        )  # Panggil method public wrapper
+        # Gunakan balance sesuai aset jika tersedia
+        balance_for_risk = risk_manager.SYSTEM_BALANCE
+        if custom_balance:
+            if asset_type == "crypto":
+                balance_for_risk = custom_balance.get(
+                    "crypto", risk_manager.SYSTEM_BALANCE
+                )
+            elif asset_type == "stock_indo":
+                balance_for_risk = custom_balance.get(
+                    "stock", risk_manager.SYSTEM_BALANCE
+                )
+            else:
+                balance_for_risk = custom_balance.get(
+                    "forex", risk_manager.SYSTEM_BALANCE
+                )
+
+        can_trade, reject_reason = await check_circuit_breaker(balance=balance_for_risk)
         if not can_trade:
-            return {
-                "Symbol": symbol,
-                "Action": "HOLD",
-                "Reason": f"Risk: {reject_reason}",
-            }
+            return False
 
         is_uncorrelated, corr_msg = await check_correlation_risk(symbol)
         if not is_uncorrelated:
-            return {"Symbol": symbol, "Action": "HOLD", "Reason": f"Risk: {corr_msg}"}
+            return False
 
-        # --- C. FETCH DATA (ASYNC) ---
+        # --- C. LOAD MODEL ---
+        # Mencari model yang sesuai kategori (forex/stock/crypto)
+        latest_file = None
+        base_dir = f"{MODEL_DIR}/{category}"
+        pattern = f"{base_dir}/{safe_symbol}*.zip"
+        files = glob.glob(pattern)
+
+        # Fallback ke Generic
+        if not files:
+            files = glob.glob(f"{base_dir}/GENERIC*.zip")
+
+        if files:
+            files.sort(reverse=True)
+            latest_file = files[0]
+
+        if not latest_file:
+            return {"Symbol": symbol, "Action": "HOLD", "Reason": "No Model"}
+
+        # --- D. FETCH DATA (ASYNC) ---
         # Menggunakan loader baru yang support CCXT & YFinance secara async
-        df = await fetch_data_async(symbol, period="2y", interval="1h")
+        df = await fetch_data(symbol, period="2y", interval="1h")
 
         if df.empty:
             return {"Symbol": symbol, "Action": "HOLD", "Reason": "No Data Fetched"}
 
-        # --- C. DATA ENRICHMENT ---
+        # --- E. LOAD MODEL ---
+        try:
+            model = await asyncio.to_thread(PPO.load, latest_file)
+        except Exception as e:
+            logger.error(f"Failed load model {symbol}: {e}")
+            return {"Symbol": symbol, "Action": "HOLD", "Reason": "No Model"}
+
+        # --- F. DATA ENRICHMENT ---
         df = enrich_data(df)
 
-        # --- D. LOAD MODEL ---
-        # Mencari model yang sesuai kategori (forex/stock/crypto)
-        model = await ModelCache.get_model(symbol, category)
-
-        # --- E. AI PREDICTION ---
-        # --- E. AI PREDICTION (PERBAIKAN TOTAL) ---
+        # --- G. AI PREDICTION ---
+        # --- G. AI PREDICTION (PERBAIKAN TOTAL) ---
         base_action = "HOLD"
         confidence = 50.0  # Start neutral
 
@@ -355,8 +387,21 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         return {"error": f"Agent Error ({symbol}): {str(e)}"}
 
 
-# Lokasi penyimpanan model otak AI
-MODEL_PATH = "models/ai_trader_ppo"
+# Lokasi penyimpanan model otak AI (format bertanggal)
+# Contoh: models/ai_trader_ppo_2026-02-06_15000steps.zip
+
+
+def _get_latest_ai_brain_path():
+    pattern = os.path.join(MODEL_DIR, f"{MODEL_BRAIN_PREFIX}_*steps.zip")
+    candidates = glob.glob(pattern)
+    if candidates:
+        return max(candidates, key=os.path.getmtime)
+
+    legacy_path = os.path.join(MODEL_DIR, f"{MODEL_BRAIN_PREFIX}.zip")
+    if os.path.exists(legacy_path):
+        return legacy_path
+
+    return None
 
 
 class TradingAgent:
@@ -374,10 +419,11 @@ class TradingAgent:
 
     def load_brain(self):
         """Memuat model jika sudah ada"""
-        if os.path.exists(f"{MODEL_PATH}.zip"):
+        latest_path = _get_latest_ai_brain_path()
+        if latest_path:
             try:
-                self.model = PPO.load(MODEL_PATH)
-                logger.info("🧠 AI Brain Loaded Successfully.")
+                self.model = PPO.load(latest_path)
+                logger.info(f"🧠 AI Brain Loaded Successfully: {latest_path}")
             except Exception as e:
                 logger.error(f"❌ Failed to load AI Brain: {e}")
         else:
@@ -392,6 +438,45 @@ class TradingAgent:
         if df.empty:
             logger.warning("Empty data provided for training.")
             return
+
+        # Pastikan fitur yang dibutuhkan RL env tersedia
+        df = enrich_data(df)
+        df = df.copy()
+
+        if "close" not in df.columns:
+            if "Close" in df.columns:
+                df["close"] = df["Close"]
+            else:
+                logger.warning("Training data missing Close/close column.")
+                return
+
+        close_min = df["close"].min()
+        close_max = df["close"].max()
+        df["close_scaled"] = (df["close"] - close_min) / (close_max - close_min + 1e-9)
+
+        if "rsi" not in df.columns:
+            df["rsi"] = df.get("RSI_14", 50)
+
+        if "macd" not in df.columns:
+            df["macd"] = df.get("MACD_12_26_9", 0)
+
+        if "volatility" not in df.columns:
+            df["volatility"] = df.get(
+                "ATR_14", df["close"].pct_change().rolling(14).std()
+            )
+
+        if "bandar_accum_score" not in df.columns:
+            if "Volume" in df.columns:
+                direction = 1
+                if "Open" in df.columns:
+                    direction = np.where(df["Close"] > df["Open"], 1, -1)
+                vol_mean = df["Volume"].rolling(20).mean().replace(0, np.nan)
+                df["bandar_accum_score"] = (direction * df["Volume"]) / vol_mean
+            else:
+                df["bandar_accum_score"] = 0
+
+        df.replace([np.inf, -np.inf], 0, inplace=True)
+        df.fillna(0, inplace=True)
 
         logger.info(f"🏋️ Starting Training Session ({timesteps} steps)...")
 
@@ -408,9 +493,13 @@ class TradingAgent:
         self.model.learn(total_timesteps=timesteps)
 
         # 4. Simpan Otak Baru
-        os.makedirs("models", exist_ok=True)
-        self.model.save(MODEL_PATH)
-        logger.info("✅ Training Finished. Brain Updated & Saved.")
+        os.makedirs(MODEL_DIR, exist_ok=True)
+        date_str = datetime.date.today().strftime("%Y-%m-%d")
+        model_path = os.path.join(
+            MODEL_DIR, f"{MODEL_BRAIN_PREFIX}_{date_str}_{timesteps}steps.zip"
+        )
+        self.model.save(model_path)
+        logger.info(f"✅ Training Finished. Brain Updated & Saved: {model_path}")
 
     def _consult_rl_model(self, market_data):
         """
@@ -483,6 +572,8 @@ class TradingAgent:
             "final_action": rl_decision["action"],
             "ai_reason": rl_decision["reason"],
             "deep_analysis": analysis_result,  # Data tambahan (OnChain/Macro/Bandar)
+            "market_data": market_data,
+            "symbol": symbol,
         }
 
 
