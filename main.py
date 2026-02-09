@@ -31,18 +31,17 @@ from src.api.search_routes import router as search_router
 from src.api.simulation_routes import router as sim_router
 from src.api.subscription_routes import router as subscription_router
 from src.api.user_routes import router as user_router
-
-# --- Imports Core ---
-from src.core.database import close_db_connection, init_db_indexes
 from src.core.logger import logger
 from src.core.middleware import register_middleware
 from src.core.producer import signal_producer_task
-from src.core.redis_client import redis_client
-from src.core.signal_bus import signal_bus
-from src.core.socket_manager import manager, redis_connector_task
 from src.core.stream_manager import StreamManager
 from src.core.subscription_scheduler import start_scheduler
 from src.core.training_scheduler import training_scheduler_task
+
+# --- Imports Core ---
+from src.database.database import close_db_connection, init_db_indexes
+from src.database.redis_client import redis_client
+from src.database.socket_manager import manager, redis_connector_task
 
 
 # --- Configuration Validation ---

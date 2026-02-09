@@ -6,8 +6,8 @@ import random
 from fastapi import WebSocket, WebSocketDisconnect
 
 from src.core.logger import logger
-from src.core.redis_client import redis_client
-from src.core.signal_bus import signal_bus
+from src.database.redis_client import redis_client
+from src.database.signal_bus import signal_bus
 
 
 class ConnectionManager:

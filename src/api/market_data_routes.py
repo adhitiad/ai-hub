@@ -2,11 +2,12 @@ from datetime import datetime, timezone
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException
+
 from src.api.auth import get_current_user
 from src.core.bandarmology import Bandarmology
-from src.core.data_loader import fetch_data
 from src.core.forex_engine import ForexEngine
-from src.core.whale_crypto import analyze_crypto_whales
+from src.database.data_loader import fetch_data
+from src.feature.whale_crypto import analyze_crypto_whales
 
 router = APIRouter(prefix="/market", tags=["Market Data & Charts"])
 

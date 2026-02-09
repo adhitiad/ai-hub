@@ -2,17 +2,21 @@ import asyncio
 from datetime import datetime, timezone
 
 from src.core.agent import get_detailed_signal
-from src.core.data_loader import fetch_data_async
-from src.core.database import assets_collection, signals_collection, users_collection
 from src.core.logger import logger
-from src.core.market_schedule import is_market_open
 from src.core.notifier import format_signal_message, send_telegram_message
-from src.core.redis_client import redis_client
-from src.core.risk_manager import (
+from src.core.telegram_notifier import telegram_bot
+from src.database.data_loader import fetch_data_async
+from src.database.database import (
+    assets_collection,
+    signals_collection,
+    users_collection,
+)
+from src.database.redis_client import redis_client
+from src.database.signal_bus import signal_bus
+from src.feature.market_schedule import is_market_open
+from src.feature.risk_manager import (
     risk_manager,
 )  # Pastikan ada instance global risk_manager
-from src.core.signal_bus import signal_bus
-from src.core.telegram_notifier import telegram_bot
 
 # --- KONFIGURASI SAFETY ---
 # Batasi hanya 5-10 request bersamaan agar tidak kena Rate Limit / Banned IP

@@ -1,10 +1,10 @@
 import asyncio
-import inspect
 
 from fastapi import APIRouter, Depends, Query
+
 from src.api.auth import get_current_user
 from src.core.config_assets import ASSETS
-from src.core.signal_bus import signal_bus
+from src.database.signal_bus import signal_bus
 
 router = APIRouter(prefix="/search", tags=["Search"])
 

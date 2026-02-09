@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 
 from src.api.auth import get_current_user
-from src.core.signal_bus import signal_bus
+from src.database.signal_bus import signal_bus
 
 router = APIRouter(prefix="/screener", tags=["Stock Screener"])
 

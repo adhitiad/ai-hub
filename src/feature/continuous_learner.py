@@ -6,10 +6,10 @@ import os
 from stable_baselines3 import PPO
 
 from src.core.config_assets import ASSETS, get_asset_info
-from src.core.data_loader import fetch_data
 from src.core.env import TradingEnv
 from src.core.logger import logger
-from src.core.memory import get_mistake_history  # <--- Import Memory
+from src.database.data_loader import fetch_data
+from src.database.memory import get_mistake_history  # <--- Import Memory
 
 MODEL_DIR = "models"
 

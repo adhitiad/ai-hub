@@ -15,29 +15,29 @@ from src.core.bandarmology import Bandarmology
 
 # --- 1. DATA & ASSETS ---
 from src.core.config_assets import ASSETS, get_asset_info
-from src.core.cryto_analysis import CryptoAnalyst
-from src.core.data_loader import fetch_data_async  # [UPDATE] Async Loader
-
-# IMPORT BARU: Gunakan logic fitur terpusat
-from src.core.feature_enginering import enrich_data, get_model_input
 from src.core.forex_engine import ForexEngine
 from src.core.logger import logger
-from src.core.market_structure import check_mtf_trend, detect_insider_volume
-from src.core.money_management import calculate_kelly_lot, check_correlation_risk
-from src.core.pattern_recognizer import detect_chart_patterns
-
-# --- 3. RISK & MONEY MANAGEMENT ---
-from src.core.risk_manager import check_circuit_breaker, risk_manager
 from src.core.rl_environment import TradingEnvironment as TradingEnv
 from src.core.scoring import calculate_technical_score
-from src.core.smart_money import analyze_smart_money
-from src.core.vector_db import recall_similar_events
-from src.core.whale_crypto import analyze_crypto_whales  # [UPDATE] Whale Detector
+from src.database.data_loader import fetch_data_async  # [UPDATE] Async Loader
+from src.database.vector_db import recall_similar_events
+from src.feature.cryto_analysis import CryptoAnalyst
+
+# IMPORT BARU: Gunakan logic fitur terpusat
+from src.feature.feature_enginering import enrich_data, get_model_input
+from src.feature.market_structure import check_mtf_trend, detect_insider_volume
+from src.feature.money_management import calculate_kelly_lot, check_correlation_risk
+from src.feature.pattern_recognizer import detect_chart_patterns
+
+# --- 3. RISK & MONEY MANAGEMENT ---
+from src.feature.risk_manager import check_circuit_breaker, risk_manager
+from src.feature.smart_money import analyze_smart_money
+from src.feature.whale_crypto import analyze_crypto_whales  # [UPDATE] Whale Detector
 
 # --- 4. OPTIONAL MODULES (ML & News) ---
 try:
-    from src.core.ml_features import ml_analyzer
-    from src.core.news_collector import analyze_news_sentiment, fetch_market_news
+    from src.feature.news_collector import analyze_news_sentiment, fetch_market_news
+    from src.ml.ml_features import ml_analyzer
 except ImportError:
     pass
 

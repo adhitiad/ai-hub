@@ -12,10 +12,10 @@ from pydantic import BaseModel
 
 from src.api.auth import get_current_user
 from src.api.roles import UserRole, check_permission
-from src.core.database import db
-from src.core.llm_analyst import LLMAnalyst
 from src.core.logger import logging
-from src.core.signal_bus import signal_bus
+from src.database.database import db
+from src.database.signal_bus import signal_bus
+from src.ml.llm_analyst import LLMAnalyst
 
 router = APIRouter(prefix="/owner", tags=["Owner"])
 BASE_DIR = Path.cwd()  # Root folder proyek

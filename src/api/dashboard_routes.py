@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends
 
 from src.api.auth import get_current_user
-from src.core.database import fix_id, signals_collection
-from src.core.signal_bus import signal_bus
+from src.database.database import fix_id, signals_collection
+from src.database.signal_bus import signal_bus
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
