@@ -1,10 +1,10 @@
-import pandas as pd
 import re
 
+import pandas as pd
 from fastapi import APIRouter, Depends
 
 from src.api.auth import get_current_user
-from src.core.database import fix_id, signals_collection
+from src.database.database import fix_id, signals_collection
 
 router = APIRouter(prefix="/journal", tags=["Trading Journal & Analytics"])
 
@@ -35,7 +35,11 @@ def _normalize_trade(doc):
     quantity = _parse_quantity(doc.get("lot_size") or doc.get("quantity"))
     entry_date = doc.get("entry_date") or doc.get("created_at")
     exit_date = doc.get("exit_date") or doc.get("closed_at") or doc.get("updated_at")
-    pnl = doc.get("pnl_currency") if doc.get("pnl_currency") is not None else doc.get("pnl")
+    pnl = (
+        doc.get("pnl_currency")
+        if doc.get("pnl_currency") is not None
+        else doc.get("pnl")
+    )
     pnl_percent = doc.get("pnl_percent")
     status = doc.get("status", "OPEN")
 

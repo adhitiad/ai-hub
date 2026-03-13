@@ -3,8 +3,8 @@ from datetime import datetime
 
 from fastapi import APIRouter, WebSocket
 
-from src.core.database import db
 from src.core.logger import logger
+from src.database.database import db
 
 router = APIRouter(prefix="/simulation", tags=["Time Travel"])
 

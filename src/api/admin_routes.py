@@ -1,13 +1,13 @@
 from datetime import datetime, timezone
 
 from bson import ObjectId
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from src.api.auth import get_current_user
 from src.api.roles import UserRole, check_permission
-from src.core.database import fix_id, requests_collection, users_collection
 from src.core.logger import logger
+from src.database.database import fix_id, requests_collection, users_collection
 
 
 # --- Models ---

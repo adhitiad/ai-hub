@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 
 from src.api.auth import get_current_user
-from src.core.database import users_collection
+from src.database.database import users_collection
 
 router = APIRouter(prefix="/portfolio", tags=["Portfolio"])
 
@@ -51,10 +51,12 @@ async def execute_virtual_order(
 
             # Cek ulang user untuk pesan error yang spesifik
             current_user = await users_collection.find_one({"email": user["email"]})
-            if current_user["virtual_balance"] < total_value:
+            if current_user and current_user["virtual_balance"] < total_value:
                 raise HTTPException(status_code=400, detail="Saldo Virtual Tidak Cukup")
-
-            raise HTTPException(status_code=500, detail="Gagal eksekusi order")
+            elif not current_user:
+                raise HTTPException(status_code=404, detail="User tidak ditemukan")
+            else:
+                raise HTTPException(status_code=500, detail="Gagal eksekusi order")
 
     elif action == "SELL":
         # Logic SELL Atomic: Pastikan user punya barang di portfolio

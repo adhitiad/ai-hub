@@ -5,8 +5,8 @@ import pandas as pd
 import pandas_ta as ta
 import yfinance as yf
 
-from src.core.feature_enginering import enrich_data, get_model_input
 from src.core.logger import logger
+from src.feature.feature_enginering import enrich_data, get_model_input
 
 # Daftar Exchange yang akan dicek (Urutan Prioritas)
 # Gate & MEXC biasanya punya banyak koin micin/baru
@@ -30,6 +30,7 @@ async def fetch_crypto_ohlcv(symbol, timeframe="1h", limit=1000):
     """
     Multi-Exchange Fetcher: Mencari data di berbagai exchange secara berurutan.
     """
+
     async def _close_exchange(exchange):
         if not exchange:
             return
@@ -58,7 +59,9 @@ async def fetch_crypto_ohlcv(symbol, timeframe="1h", limit=1000):
             ohlcv = await exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
 
             if ohlcv and len(ohlcv) > 0:
-                print(f"✅ Found {symbol} on {ex_name.upper()} ({len(ohlcv)} candles)")
+                logger.info(
+                    f"✅ Found {symbol} on {ex_name.upper()} ({len(ohlcv)} candles)"
+                )
 
                 # Convert ke DataFrame
                 df = pd.DataFrame(
@@ -79,7 +82,7 @@ async def fetch_crypto_ohlcv(symbol, timeframe="1h", limit=1000):
             await _close_exchange(exchange)
 
     # Jika sudah cek semua exchange tapi nihil
-    print(f"❌ {symbol} not found on any configured exchanges.")
+    logger.warning(f"❌ {symbol} not found on any configured exchanges.")
     return pd.DataFrame()
 
 

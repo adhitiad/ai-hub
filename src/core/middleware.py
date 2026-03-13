@@ -1,18 +1,16 @@
+import hashlib
 import time
 import traceback
 from datetime import datetime, timezone
 
-import redis.asyncio as redis
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi_limiter import FastAPILimiter
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.middleware.sessions import SessionMiddleware
 
-from src.core.database import db  # Asumsi ada koneksi DB
 from src.core.logger import logger
-from src.core.redis_client import redis_client
+from src.database.database import db  # Asumsi ada koneksi DB
+from src.database.redis_client import redis_client
 
 
 # --- 1. Custom Logging Middleware ---
@@ -147,3 +145,25 @@ async def check_trial_access(user_id):
 
     # Jika lolos, catat waktu request ini (misal tambah 1 menit per request atau hitung durasi sesi)
     # Cara simpel: Asumsi 1 request = 1 poin, atau tracking WebSocket duration.
+
+
+# Middleware untuk validasi API key
+async def verify_api_key(request: Request):
+    api_key = request.headers.get("X-API-Key")
+    if not api_key:
+        raise HTTPException(status_code=401, detail="API key required")
+
+    key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+    user = await db.users.find_one({"api_key_hash": key_hash})
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    # Cek apakah key sudah expired (opsional)
+    key_age = datetime.utcnow() - user.get("api_key_created_at", datetime.utcnow())
+    if key_age.days > 90:  # Rotate setiap 90 hari
+        raise HTTPException(
+            status_code=401, detail="API key expired. Please regenerate."
+        )
+
+    return user

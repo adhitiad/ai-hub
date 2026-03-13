@@ -7,9 +7,9 @@ from pydantic import BaseModel
 from pypdf import PdfReader
 
 from src.api.auth import get_current_user
-from src.core.llm_analyst import LLMAnalyst
 from src.core.logger import logger
-from src.core.news_radar import NewsRadar
+from src.feature.news_radar import NewsRadar
+from src.ml.llm_analyst import LLMAnalyst
 
 
 class FinancialReportAnalyzer:
@@ -121,7 +121,7 @@ async def ask_ai(req: ChatRequest, user: dict = Depends(get_current_user)):
             recent_news = await news.get_sentiment(req.symbol)
             context_data += f"\n[LATEST NEWS for {req.symbol}]: {recent_news}"
         except:
-
+            logger.error("Failed to retrieve news")
             pass
 
     # 2. Augmented Generation (Prompting)

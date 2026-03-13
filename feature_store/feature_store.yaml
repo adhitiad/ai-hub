@@ -1,0 +1,8 @@
+# feature_store/feature_store.yaml
+project: aihub
+registry: data/registry.db
+provider: local
+online_store:
+  type: sqlite
+  path: data/online_store.db
+offline_store: file

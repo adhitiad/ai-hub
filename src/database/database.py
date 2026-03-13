@@ -1,9 +1,11 @@
 import os
 import sys
-from datetime import timezone
+from datetime import datetime, timezone
 
+from bson import ObjectId
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.errors import ConnectionFailure
 
 load_dotenv()
 
@@ -67,3 +69,35 @@ async def init_db_indexes():
         print("⚡ Database Indexes Optimized")
     except Exception as e:
         print(f"⚠️ Warning during index creation: {e}")
+
+
+# src/core/database.py - Tambahkan field
+async def regenerate_api_key(user_id: str) -> str:
+    """Generate API key baru dan invalidate yang lama"""
+    import hashlib
+    import secrets
+
+    # Generate key baru
+    new_key = f"ak_{secrets.token_urlsafe(32)}"
+    key_hash = hashlib.sha256(new_key.encode()).hexdigest()
+
+    # Simpan hash, bukan plain key
+    await db.users.update_one(
+        {"_id": ObjectId(user_id)},
+        {
+            "$set": {
+                "api_key_hash": key_hash,
+                "api_key_created_at": datetime.now(timezone.utc),
+                "api_key_last_rotated": datetime.now(timezone.utc),
+            },
+            "$push": {
+                "api_key_history": {
+                    "hash": key_hash,
+                    "created_at": datetime.now(timezone.utc),
+                }
+            },
+        },
+    )
+
+    # Return plain key (hanya ditampilkan sekali)
+    return new_key

@@ -5,7 +5,7 @@ import dotenv
 from fastapi import HTTPException, Security
 from fastapi.security.api_key import APIKeyHeader
 
-from src.core.database import fix_id, users_collection
+from src.database.database import fix_id, users_collection
 
 dotenv.load_dotenv()
 

@@ -3,8 +3,8 @@ import json
 
 from pypdf import PdfReader
 
-from src.core.llm_analyst import LLMAnalyst
 from src.core.logger import logger
+from src.ml.llm_analyst import LLMAnalyst
 
 
 class FinancialReportAnalyzer:

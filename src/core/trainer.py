@@ -5,9 +5,9 @@ import sys
 from stable_baselines3 import PPO
 
 from src.core.config_assets import get_asset_info
-from src.core.data_loader import fetch_data
 from src.core.env import TradingEnv
 from src.core.torch_config import device
+from src.database.data_loader import fetch_data
 
 CANDIDATE_DIR = "models/candidates"
 PRODUCTION_DIR = "models"

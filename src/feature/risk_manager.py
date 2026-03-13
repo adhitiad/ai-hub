@@ -1,8 +1,8 @@
 import asyncio
 from datetime import datetime, timezone
 
-from src.core.database import signals_collection
 from src.core.logger import logger
+from src.database.database import signals_collection
 
 
 class RiskManager:

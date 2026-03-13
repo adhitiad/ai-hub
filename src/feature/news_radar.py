@@ -5,7 +5,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from src.core.logger import logger
-from src.core.news_collector import analyze_sentiment_vader, get_google_news_rss
+from src.feature.news_collector import analyze_sentiment_vader, get_google_news_rss
 
 
 class NewsRadar:

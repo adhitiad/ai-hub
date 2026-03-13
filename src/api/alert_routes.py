@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from src.api.auth import get_current_user
-from src.core.database import alerts_collection, fix_id
+from src.database.database import alerts_collection, fix_id
 
 router = APIRouter(prefix="/alerts", tags=["Alerts System"])
 

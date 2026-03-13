@@ -1,7 +1,11 @@
 import math
 
-from src.core.database import assets_collection, signals_collection, users_collection
 from src.core.logger import logger
+from src.database.database import (
+    assets_collection,
+    signals_collection,
+    users_collection,
+)
 
 
 def calculate_lot_size(balance, risk_percentage, sl_price, entry_price, asset_info):

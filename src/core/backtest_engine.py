@@ -5,7 +5,7 @@ import pandas as pd
 from stable_baselines3 import PPO
 
 from src.core.config_assets import get_asset_info
-from src.core.data_loader import fetch_data_async
+from src.database.data_loader import fetch_data_async
 
 MODELS_DIR = "models"
 

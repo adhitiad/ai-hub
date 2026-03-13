@@ -3,11 +3,15 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi_limiter.depends import RateLimiter  # <--- Import ini
 from pydantic import BaseModel, EmailStr
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
-from src.core.database import fix_id, users_collection  # <--- Pakai Mongo
 from src.core.logger import logger
-from src.core.redis_client import redis_client
 from src.core.security import generate_api_key, get_password_hash, verify_password
+from src.database.database import fix_id, users_collection  # <--- Pakai Mongo
+from src.database.redis_client import redis_client
+
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 

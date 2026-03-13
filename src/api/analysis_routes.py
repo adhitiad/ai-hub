@@ -3,8 +3,8 @@ import datetime
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from src.api.auth import get_current_user
-from src.core.database import db  # Asumsi ada collection 'reports'
-from src.core.financial_report_analyzer import FinancialReportAnalyzer
+from src.database.database import db  # Asumsi ada collection 'reports'
+from src.feature.financial_report_analyzer import FinancialReportAnalyzer
 
 router = APIRouter(prefix="/analysis", tags=["AI Financial Analysis"])
 analyzer = FinancialReportAnalyzer()

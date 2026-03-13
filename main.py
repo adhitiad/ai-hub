@@ -10,6 +10,9 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi_limiter import FastAPILimiter
 from pymongo.errors import ConnectionFailure
 from redis.exceptions import ConnectionError
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address as get_remote_address
 
 # Route Admin Baru (Pastikan file src/api/admin_routes.py sudah dibuat)
 from src.api.admin_routes import router as admin_router
@@ -143,9 +146,25 @@ app = FastAPI(
     openapi_url="/openapi.json",
     debug=os.getenv("DEBUG", "False").lower() == "true",
 )
+limiter = Limiter(key_func=get_remote_address)
+
+app.state.limiter = limiter
+
+
+async def rate_limit_exceeded_handler(request, exc: Exception):
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Rate limit exceeded"},
+    )
+
+
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 # --- 1. Setup Middleware ---
 register_middleware(app)
+
 
 # --- 2. Register Routes ---
 app.include_router(auth_router)

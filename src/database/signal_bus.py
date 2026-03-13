@@ -1,5 +1,5 @@
 # src/core/signal_bus.py
-from src.core.redis_client import redis_client
+from src.database.redis_client import redis_client
 
 
 class InternalSignalBus:
@@ -20,7 +20,7 @@ class InternalSignalBus:
 
     async def clear(self):
         """Clear all signals from Redis"""
-        await redis_client.delete_pattern("signal:*")
+        await redis_client.delete("market_signals")
 
 
 # Instance

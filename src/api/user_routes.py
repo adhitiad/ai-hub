@@ -1,7 +1,6 @@
 import secrets
-from datetime import datetime, timezone
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Request
 from pydantic import BaseModel
 
 from src.api.auth import get_current_user
@@ -9,8 +8,8 @@ from src.api.auth import get_current_user
 # Fix Imports: Tambahkan 'src.' dan import 'fix_id'
 from src.core.agent import get_detailed_signal
 from src.core.config_assets import get_asset_info
-from src.core.database import fix_id, users_collection
-from src.core.redis_client import redis_client
+from src.database.database import fix_id, regenerate_api_key, users_collection
+from src.database.redis_client import redis_client
 
 router = APIRouter(prefix="/user", tags=["User Data"])
 
@@ -137,3 +136,19 @@ async def generate_telegram_bind_code(user: dict = Depends(get_current_user)):
     )
 
     return {"code": code, "bot_link": "https://t.me/NamaBotAnda_Bot"}
+
+
+# src/api/routes/auth.py
+@router.post("/user/api-key/regenerate")
+async def regenerate_key(
+    current_user: dict = Depends(get_current_user),
+):
+    """Regenerate API key (old key will be invalidated immediately)"""
+    new_key = await regenerate_api_key(str(current_user["_id"]))
+
+    return {
+        "status": "success",
+        "message": "API key regenerated successfully",
+        "api_key": new_key,  # Hanya ditampilkan sekali!
+        "warning": "Store this key safely. It will not be shown again.",
+    }
