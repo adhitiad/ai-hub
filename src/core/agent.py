@@ -10,7 +10,6 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 
 # --- 2. ADVANCED ANALYSIS ---
-# Update import
 from src.core.bandarmology import Bandarmology
 
 # --- 1. DATA & ASSETS ---
@@ -19,11 +18,9 @@ from src.core.forex_engine import ForexEngine
 from src.core.logger import logger
 from src.core.rl_environment import TradingEnvironment as TradingEnv
 from src.core.scoring import calculate_technical_score
-from src.database.data_loader import fetch_data_async  # [UPDATE] Async Loader
+from src.database.data_loader import fetch_data_async
 from src.database.vector_db import recall_similar_events
 from src.feature.cryto_analysis import CryptoAnalyst
-
-# IMPORT BARU: Gunakan logic fitur terpusat
 from src.feature.feature_enginering import enrich_data, get_model_input
 from src.feature.market_structure import check_mtf_trend, detect_insider_volume
 from src.feature.money_management import calculate_kelly_lot, check_correlation_risk
@@ -32,7 +29,7 @@ from src.feature.pattern_recognizer import detect_chart_patterns
 # --- 3. RISK & MONEY MANAGEMENT ---
 from src.feature.risk_manager import check_circuit_breaker, risk_manager
 from src.feature.smart_money import analyze_smart_money
-from src.feature.whale_crypto import analyze_crypto_whales  # [UPDATE] Whale Detector
+from src.feature.whale_crypto import analyze_crypto_whales
 
 # --- 4. OPTIONAL MODULES (ML & News) ---
 try:
@@ -50,7 +47,6 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
     """
     ULTIMATE SIGNAL GENERATOR (Async Version + Crypto Support + Advanced Analysis + Stock Indo Support)
     """
-
     try:
         # --- A. SETUP & VALIDATION ---
         if not asset_info:
@@ -70,7 +66,8 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         # Deteksi Tipe Aset
         asset_type = info.get("type", "forex")
         category = info.get("category", "forex").lower()
-        # overide stock indo mengandung ".JK"
+
+        # Override stock indo jika mengandung ".JK"
         is_stock_indo = asset_type == "stock_indo" or ".JK" in symbol
         if is_stock_indo:
             asset_type = "stock_indo"
@@ -85,8 +82,6 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         safe_symbol = symbol.replace("=", "").replace("^", "").replace("/", "")
 
         # --- B. GLOBAL RISK CHECKS ---
-        # Pastikan fungsi-fungsi risk manager ini async atau dipanggil dengan benar
-        # Gunakan balance sesuai aset jika tersedia
         balance_for_risk = risk_manager.SYSTEM_BALANCE
         if custom_balance:
             if asset_type == "crypto":
@@ -111,13 +106,12 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
             return False
 
         # --- C. LOAD MODEL ---
-        # Mencari model yang sesuai kategori (forex/stock/crypto)
         latest_file = None
         base_dir = f"{MODEL_DIR}/{category}"
         pattern = f"{base_dir}/{safe_symbol}*.zip"
         files = glob.glob(pattern)
 
-        # Fallback ke Generic
+        # Fallback ke Generic jika spesifik tidak ada
         if not files:
             files = glob.glob(f"{base_dir}/GENERIC*.zip")
 
@@ -129,13 +123,12 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
             return {"Symbol": symbol, "Action": "HOLD", "Reason": "No Model"}
 
         # --- D. FETCH DATA (ASYNC) ---
-        # Menggunakan loader baru yang support CCXT & YFinance secara async
         df = await fetch_data(symbol, period="2y", interval="1h")
 
         if df.empty:
             return {"Symbol": symbol, "Action": "HOLD", "Reason": "No Data Fetched"}
 
-        # --- E. LOAD MODEL ---
+        # --- E. LOAD MODEL OBJECT ---
         try:
             model = await asyncio.to_thread(PPO.load, latest_file)
         except Exception as e:
@@ -146,41 +139,31 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         df = enrich_data(df)
 
         # --- G. AI PREDICTION ---
-        # --- G. AI PREDICTION (PERBAIKAN TOTAL) ---
         base_action = "HOLD"
-        confidence = 50.0  # Start neutral
+        confidence = 50.0
 
         if model:
-            # 1. FILTER KOLOM: Hanya ambil kolom fitur yang dipelajari model
             df_features = get_model_input(df)
-
-            # 2. NORMALISASI: Scaling data agar range-nya sama dengan saat training
-            # Kita fit scaler pada seluruh history 2y agar distribusi nilainya valid
             scaler = StandardScaler()
             scaled_features = scaler.fit_transform(df_features)
 
-            # 3. Ambil baris terakhir yang sudah ternormalisasi
             last_obs_features = scaled_features[-1]
-
-            # 4. Tambahkan info posisi (0 = No Position)
-            # Shape akhir harus match dengan env.observation_space
             obs = np.append(last_obs_features, [0]).astype(np.float32)
 
-            # 5. Predict
             action, _ = await asyncio.to_thread(model.predict, obs)
             action_map = {0: "HOLD", 1: "BUY", 2: "SELL"}
             base_action = action_map[int(action)]
 
-            # Base confidence dari AI
             if base_action != "HOLD":
                 confidence = 65.0
 
-        last_row = df.iloc[-1].copy()
+        # PERBAIKAN: Gunakan .to_dict() agar .get() lebih aman dan kompatibel dengan Pandas terbaru
+        last_row_dict = df.iloc[-1].to_dict()
         reasons = []
 
-        # --- F. ADVANCED ANALYSIS INTEGRATION ---
+        # --- H. ADVANCED ANALYSIS INTEGRATION ---
 
-        # 1. VECTOR DB RECALL (History Check)
+        # 1. VECTOR DB RECALL
         history_outcome = recall_similar_events(df)
         if history_outcome == "WIN":
             confidence += 5
@@ -210,7 +193,6 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         whale_data_info = None
 
         if is_crypto:
-            # --- LOGIKA PAUS CRYPTO ---
             whale_data = await analyze_crypto_whales(symbol)
             whale_data_info = whale_data
 
@@ -230,7 +212,6 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
                 elif base_action == "BUY":
                     confidence -= 25
 
-            # Ekstra Logika berdasarkan Score
             if w_score > 20 and base_action == "SELL":
                 confidence += 10
                 reasons.append("Whale Activity confirms SELL 📉")
@@ -239,7 +220,6 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
                 reasons.append("Whale Activity confirms BUY 📈")
 
         elif asset_type == "stock_indo":
-            # --- LOGIKA BANDARMOLOGY SAHAM ---
             bandar_result = Bandarmology.analyze_bandar_flow(df)
             flow_status = bandar_result["status"]
             if base_action == "BUY" and "ACCUM" in flow_status:
@@ -249,7 +229,7 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
                 confidence += 15
                 reasons.append("Bandar Distribution 📉")
 
-        # 4. INSIDER VOLUME (Umum)
+        # 4. INSIDER VOLUME
         if detect_insider_volume(df):
             confidence += 10
             reasons.append("Insider Volume Spike 🐳")
@@ -262,9 +242,7 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
 
         # 6. ML FEATURES (Random Forest)
         if "ml_analyzer" in globals():
-            # rf_signal_confirmation sudah otomatis handle enrich & input shape
             rf_score = ml_analyzer.rf_signal_confirmation(df)
-
             if abs(rf_score) > 20:
                 confidence += rf_score / 10
                 reasons.append(f"RF Model: {rf_score}")
@@ -291,7 +269,7 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
                 ):
                     confidence -= 15
 
-        # --- G. FINAL DECISION ---
+        # --- I. FINAL DECISION ---
         confidence = max(10.0, min(99.9, confidence))
 
         if confidence < 50 or base_action == "HOLD":
@@ -305,9 +283,9 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
                 ),
             }
 
-        # --- H. MONEY MANAGEMENT & ORDER ---
-        current_price = last_row["Close"]
-        atr = last_row.get("ATR_14", current_price * 0.01)
+        # --- J. MONEY MANAGEMENT & ORDER ---
+        current_price = last_row_dict.get("Close", 0.0)
+        atr = last_row_dict.get("ATR_14", current_price * 0.01)
 
         # Dynamic Risk Multiplier
         sl_mult = 2.0  # Default Stock
@@ -323,7 +301,7 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         order_type = "MARKET"
 
         # Pullback Logic
-        ema_20 = last_row.get("SMA_20", current_price)
+        ema_20 = last_row_dict.get("SMA_20", current_price)
         dist_to_ema = abs(current_price - ema_20)
 
         if dist_to_ema > (atr * 0.8):
@@ -384,11 +362,8 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         return result
 
     except Exception as e:
+        logger.error(f"Agent Error ({symbol}): {str(e)}")
         return {"error": f"Agent Error ({symbol}): {str(e)}"}
-
-
-# Lokasi penyimpanan model otak AI (format bertanggal)
-# Contoh: models/ai_trader_ppo_2026-02-06_15000steps.zip
 
 
 def _get_latest_ai_brain_path():
@@ -439,7 +414,6 @@ class TradingAgent:
             logger.warning("Empty data provided for training.")
             return
 
-        # Pastikan fitur yang dibutuhkan RL env tersedia
         df = enrich_data(df)
         df = df.copy()
 
@@ -480,19 +454,15 @@ class TradingAgent:
 
         logger.info(f"🏋️ Starting Training Session ({timesteps} steps)...")
 
-        # 1. Buat Environment dari data
         env = DummyVecEnv([lambda: TradingEnv(df)])
 
-        # 2. Inisialisasi Model (Buat baru atau lanjut belajar)
         if self.model is None:
             self.model = PPO("MlpPolicy", env, verbose=1)
         else:
             self.model.set_env(env)
 
-        # 3. Mulai Belajar
         self.model.learn(total_timesteps=timesteps)
 
-        # 4. Simpan Otak Baru
         os.makedirs(MODEL_DIR, exist_ok=True)
         date_str = datetime.date.today().strftime("%Y-%m-%d")
         model_path = os.path.join(
@@ -508,9 +478,6 @@ class TradingAgent:
         if self.model is None:
             return {"action": "HOLD", "reason": "AI not trained yet"}
 
-        # Format data agar sesuai dengan input Environment
-        # [Close(Norm), RSI, MACD, BandarFlow, Volatility, PositionStatus]
-        # Asumsi saat ini tidak pegang barang (PositionStatus = 0) untuk sinyal awal
         obs = np.array(
             [
                 market_data.get("close_scaled", 0),
@@ -518,15 +485,12 @@ class TradingAgent:
                 market_data.get("macd", 0),
                 market_data.get("bandar_score", 0),
                 market_data.get("volatility", 0),
-                market_data.get("has_position", 0),  # Kirim 1 jika user punya barang
+                market_data.get("has_position", 0),
             ],
             dtype=np.float32,
         )
 
-        # Prediksi
         action_code, _ = self.model.predict(obs, deterministic=True)
-
-        # Mapping Kode ke Bahasa Manusia
         actions_map = {0: "HOLD", 1: "BUY", 2: "SELL"}
         action_str = actions_map.get(int(action_code), "HOLD")
 
@@ -540,28 +504,21 @@ class TradingAgent:
     def get_action(self, market_data: dict) -> dict:
         """
         Fungsi untuk Real-time Inference (API).
-        Input: Data pasar detik ini (Close, RSI, Bandar, dll).
-        Output: Keputusan (BUY/SELL/HOLD).
         """
-        asset_type = market_data.get("asset_type", "STOCK")  # Default STOCK
+        asset_type = market_data.get("asset_type", "STOCK")
         symbol = market_data.get("symbol", "")
 
         analysis_result = {}
 
-        # --- ROUTING LOGIC ---
         if asset_type == "CRYPTO":
             analysis_result = self.crypto_brain.analyze(
                 symbol, market_data.get("price", 0.0)
             )
-
         elif asset_type == "FOREX":
             analysis_result = self.forex_brain.analyze_strength(symbol)
-
-        else:  # STOCK
+        else:
             analysis_result = self.stock_brain.analyze_bandar_flow(symbol)
 
-        # Gabungkan hasil analisis spesifik dengan RL Agent Decision
-        # (RL Agent logic tetap sama, dia hanya butuh angka input)
         rl_decision = self._consult_rl_model(market_data)
 
         return {
@@ -571,11 +528,11 @@ class TradingAgent:
             "features_used": rl_decision.get("features_used", []),
             "final_action": rl_decision["action"],
             "ai_reason": rl_decision["reason"],
-            "deep_analysis": analysis_result,  # Data tambahan (OnChain/Macro/Bandar)
+            "deep_analysis": analysis_result,
             "market_data": market_data,
             "symbol": symbol,
         }
 
 
-# Singleton Instance agar bisa dipanggil di mana saja
+# Singleton Instance
 ai_agent = TradingAgent()

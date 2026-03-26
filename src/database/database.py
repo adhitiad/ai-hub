@@ -1,4 +1,6 @@
+import hashlib
 import os
+import secrets
 import sys
 from datetime import datetime, timezone
 
@@ -7,21 +9,25 @@ from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import ConnectionFailure
 
+# PERBAIKAN: Gunakan logger bawaan sistem
+from src.core.logger import logger
+
 load_dotenv()
 
 # --- 1. Validasi Environment Variable ---
 MONGO_URI = os.getenv("MONGO_URI")
-DB_NAME = os.getenv("MONGO_DB_NAME", "ai_hub")
+DB_NAME = os.getenv(
+    "MONGO_DB_NAME", "ai_trading_hub"
+)  # Pastikan nama DB default sesuai
 
 if not MONGO_URI:
-    print("❌ FATAL ERROR: MONGO_URI is not set in .env file.")
+    logger.error("❌ FATAL ERROR: MONGO_URI is not set in .env file.")
     sys.exit(1)
 
 # --- 2. Setup Client ---
 client = AsyncIOMotorClient(MONGO_URI, tz_aware=True, tzinfo=timezone.utc)
 db = client[DB_NAME]
 
-# Definisi Collections
 users_collection = db.users
 signals_collection = db.signals
 transactions_collection = db.transactions
@@ -33,7 +39,6 @@ alerts_collection = db.alerts
 
 # --- 3. Helper Functions ---
 def fix_id(doc):
-    """Mengubah ObjectId menjadi string 'id' untuk respons JSON."""
     if doc and "_id" in doc:
         doc["id"] = str(doc["_id"])
         del doc["_id"]
@@ -41,48 +46,34 @@ def fix_id(doc):
 
 
 async def close_db_connection():
-    """Menutup koneksi database saat server shutdown (Graceful Shutdown)."""
     client.close()
-    print("🔒 MongoDB Connection Closed.")
+    logger.info("🔒 MongoDB Connection Closed.")
 
 
 async def init_db_indexes():
-    """Membuat Index untuk performa query."""
     try:
-        # Users
         await users_collection.create_index("email", unique=True)
         await users_collection.create_index("api_key")
 
-        # Signals
         await signals_collection.create_index([("status", 1), ("symbol", 1)])
-        # TTL Index: Hapus sinyal lama setelah 7 hari
         await signals_collection.create_index(
             "created_at", expireAfterSeconds=86400 * 7
         )
 
-        # Transactions
         await transactions_collection.create_index("order_id", unique=True)
-
-        # Upgrade Requests
         await requests_collection.create_index([("user_email", 1), ("status", 1)])
 
-        print("⚡ Database Indexes Optimized")
+        logger.info("⚡ Database Indexes Optimized")
     except Exception as e:
-        print(f"⚠️ Warning during index creation: {e}")
+        logger.warning(f"⚠️ Warning during index creation: {e}")
 
 
-# src/core/database.py - Tambahkan field
 async def regenerate_api_key(user_id: str) -> str:
-    """Generate API key baru dan invalidate yang lama"""
-    import hashlib
-    import secrets
-
-    # Generate key baru
+    """Generate API key baru dan invalidate yang lama secara aman"""
     new_key = f"ak_{secrets.token_urlsafe(32)}"
     key_hash = hashlib.sha256(new_key.encode()).hexdigest()
 
-    # Simpan hash, bukan plain key
-    await db.users.update_one(
+    await users_collection.update_one(
         {"_id": ObjectId(user_id)},
         {
             "$set": {
@@ -98,6 +89,4 @@ async def regenerate_api_key(user_id: str) -> str:
             },
         },
     )
-
-    # Return plain key (hanya ditampilkan sekali)
     return new_key

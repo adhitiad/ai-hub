@@ -1,11 +1,13 @@
 # ⚡ AI Trading Hub (SaaS Platform)
 
-<!-- ![Next.js](https://img.shields.io/badge/Frontend-Next.js-black?style=for-the-badge&logo=next.js&logoColor=white) -->
+<div align="center">
+  <img src="https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/Database-MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB" />
+  <img src="https://img.shields.io/badge/AI-PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white" alt="PyTorch" />
+  <img src="https://img.shields.io/badge/DevOps-Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
+</div>
 
-![Python](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![MongoDB](https://img.shields.io/badge/Database-MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
-![PyTorch](https://img.shields.io/badge/AI-PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
-![Docker](https://img.shields.io/badge/DevOps-Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+<br/>
 
 **AI Trading Hub** is an advanced, full-stack algorithmic trading platform designed for **Forex, Indonesian Stocks (IDX), and US Stocks**. It combines Deep Reinforcement Learning (PPO) with specialized market analysis (Bandarmology & Smart Money Concepts) and LLM-based decision support using Groq/Llama 3.
 
@@ -37,12 +39,12 @@
 ### Backend
 
 - **Framework:** FastAPI (Python 3.10+)
-- **Database:** MongoDB (Async Motor Driver)
+- **Database:** MongoDB (Async Motor Driver) & Redis (Pub/Sub & Caching)
 - **AI/ML:** PyTorch, Stable-Baselines3, Scikit-learn, Pandas-TA
-- **Data Source:** YFinance (Custom Ticker Loader)
-- **Security:** JWT Auth, Bcrypt Hashing, API Key headers
+- **Data Source:** YFinance, CCXT (Crypto)
+- **Security:** JWT Auth, Bcrypt Hashing, API Key headers, SlowAPI Rate Limiting
 
-### Frontend
+### Frontend (Reference)
 
 - **Framework:** Next.js 15 (App Router)
 - **UI Library:** Shadcn UI, Tailwind CSS, Lucide Icons
@@ -56,18 +58,17 @@
 ### Prerequisites
 
 - Python 3.10+
-- Node.js 18+
 - MongoDB (Local or Atlas)
-- Docker (Optional)
+- Redis Server (Local or Cloud)
 
 ### 1. Backend Setup
 
 ```bash
 # Clone repository
-git clone [https://github.com/yourusername/ai-trading-hub.git](https://github.com/yourusername/ai-trading-hub.git)
+git clone [https://github.com/adhitiad/ai-trading-hub.git](https://github.com/adhitiad/ai-trading-hub.git)
 cd ai-trading-hub
 
-# Create virtual environment
+# Create and activate virtual environment
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
@@ -79,14 +80,13 @@ pip install torch torchvision torchaudio --index-url [https://download.pytorch.o
 
 # Setup Environment Variables
 cp .env.example .env
-# (Edit .env with your MongoDB URI and API Keys)
+# (Edit .env with your MongoDB URI, Redis Config, and API Keys)
 
 # Run Server
 uvicorn main:app --reload
 ```
 
-## 🔑 Environment Variables (.env)
-
+🔑 Environment Variables (.env)
 Create a .env file in the root directory:
 
 ```bash
@@ -94,16 +94,19 @@ Create a .env file in the root directory:
 MONGO_URI=mongodb://localhost:27017
 MONGO_DB_NAME=ai_trading_hub
 
+# REDIS
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
 # SECURITY
 SECRET_KEY=your_super_secret_jwt_key_here
 
 # EXTERNAL APIS
 GROQ_API_KEY=gsk_xxxxxxxxxxxxxx
-MIDTRANS_SERVER_KEY=SB-Mid-server-xxxx
-MIDTRANS_CLIENT_KEY=SB-Mid-client-xxxx
+TELEGRAM_BOT_TOKEN=123456789:ABCdefGhIJKlmNoPQRstuVWXyz
 ```
 
-## 🤖 AI Training Pipeline
+# 🤖 AI Training Pipeline
 
 To retrain the models with the latest market data:
 
@@ -111,10 +114,10 @@ Manual Trigger: Run python train_all.py
 
 Via Dashboard: Login as Owner -> Go to God Mode -> Click "Retrain AI".
 
-The system uses yfinance to fetch historical data, calculates 50+ technical indicators, and trains a PPO Agent using Gymnasium environment.
+The system uses yfinance to fetch historical data, calculates 50+ technical indicators, and trains a PPO Agent using the Gymnasium environment.
 
-## 🛡️ License
+# 🛡️ License
 
 Distributed under the MIT License. See LICENSE for more information.
 
-**Built with ❤️ by [Adhitiad](https://github.com/adhitiad)**
+# 🔗Built with ❤️ by Adhitiad [@adhitiad](https://github.com/adhitiad)

@@ -20,7 +20,7 @@ from src.ml.llm_analyst import LLMAnalyst
 router = APIRouter(prefix="/owner", tags=["Owner"])
 BASE_DIR = Path.cwd()  # Root folder proyek
 # Direktori yang BOLEH diedit (Whitelist) agar Owner tidak salah hapus file Windows/Linux
-ALLOWED_DIRS = ["core", "api", "models", "logs"]
+ALLOWED_DIRS = ["src", "models", "logs"]
 
 
 def _sanitize_bson(value):
@@ -56,24 +56,26 @@ def validate_safe_path(user_path: str) -> Path:
     target = (base / user_path).resolve()
 
     # Cek apakah target path dimulai dengan base path project
-    if not str(target).startswith(str(base)):
-        raise HTTPException(403, "Access Denied: Path traversal detected.")
+    if base not in target.parents and target != base:
+        raise HTTPException(
+            status_code=403, detail="Access Denied: Path traversal detected."
+        )
 
     # Whitelist folder tambahan
-    allowed_prefixes = [base / d for d in ALLOWED_DIRS]
-    is_allowed = any(str(target).startswith(str(p)) for p in allowed_prefixes)
+    allowed_prefixes = [(base / d).resolve() for d in ALLOWED_DIRS]
+    is_allowed = any(target == p or p in target.parents for p in allowed_prefixes)
 
     if not is_allowed and target != base:  # Izinkan root file tertentu jika perlu
-        # Tambahan logika strict jika mau:
-        # raise HTTPException(403, "Access to this folder is restricted.")
-        pass
+        raise HTTPException(
+            status_code=403, detail="Access to this folder is restricted by whitelist."
+        )
 
     return target
 
 
 def verify_owner(user: dict = Depends(get_current_user)) -> dict:
     if not check_permission(user["role"], UserRole.OWNER):
-        raise HTTPException(403, "OWNER ONLY")
+        raise HTTPException(status_code=403, detail="OWNER ONLY")
     return user
 
 
@@ -83,9 +85,17 @@ def get_file_tree(user: dict = Depends(verify_owner)) -> Dict[str, Dict[str, Any
     file_tree = {}
 
     for root, dirs, files in os.walk(BASE_DIR):
+        # Filter folder sistem agar os.walk tidak berat dan tidak scan file tidak relevan
+        dirs[:] = [
+            d
+            for d in dirs
+            if d not in [".git", "venv", "node_modules", "__pycache__", ".pytest_cache"]
+        ]
+
         # Filter: Hanya tampilkan folder yang diizinkan
         # Ambil relative path
         rel_path = os.path.relpath(root, BASE_DIR)
+        rel_path = rel_path.replace("\\", "/")  # Normalisasi untuk Windows
 
         if rel_path == "." or any(rel_path.startswith(d) for d in ALLOWED_DIRS):
             file_tree[rel_path] = {
@@ -116,15 +126,6 @@ def read_file_content(
         return {"path": str(safe_path.relative_to(BASE_DIR)), "content": content}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-# @router.post("/files/save")
-# def save_file(data: FileModel, user=Depends(verify_owner)):
-#     path = os.path.abspath(os.path.join(BASE_DIR, data.path))
-#     shutil.copy(path, path + ".bak")
-#     with open(path, "w") as f:
-#         f.write(data.content)
-#     return {"status": "saved"}
 
 
 @router.get("/logs/stream")
@@ -275,7 +276,7 @@ async def view_database_content(
     Owner Only: Mengintip isi database mentah.
     """
     if collection_name not in ["users", "signals", "transactions", "upgrade_requests"]:
-        raise HTTPException(400, "Restricted Collection")
+        raise HTTPException(status_code=403, detail="Restricted Collection")
 
     try:
         cursor = db[collection_name].find({}).limit(limit).sort("_id", -1)
@@ -283,7 +284,7 @@ async def view_database_content(
 
         return [_sanitize_bson(item) for item in data]
     except Exception as e:
-        raise HTTPException(500, str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/financial-health", tags=["Owner Super Access"])
