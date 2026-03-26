@@ -46,6 +46,8 @@ models/**/*.joblib
 models/*.joblib
 yfinance.cache
 signal_snapshot.json
+mcp.json
+
 
 # --- DATABASE ---
 # Jika ada dump lokal

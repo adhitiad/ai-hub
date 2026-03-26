@@ -8,11 +8,9 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 
-from src.core.data_loader import fetch_data_async
-from src.core.database import assets_collection
-
-# IMPORT BARU
-from src.core.feature_enginering import enrich_data, get_model_input
+from src.database.data_loader import fetch_data_async
+from src.database.database import assets_collection
+from src.feature.feature_enginering import enrich_data, get_model_input
 
 MODEL_PATH = "models/rf_model.joblib"
 

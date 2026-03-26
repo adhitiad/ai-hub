@@ -1,6 +1,6 @@
 import pandas as pd
 
-from src.core.database import signals_collection
+from src.database.database import signals_collection
 
 
 async def get_mistake_history(symbol):

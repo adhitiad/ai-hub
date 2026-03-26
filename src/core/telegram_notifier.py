@@ -6,9 +6,9 @@ from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-from src.core.database import users_collection
 from src.core.logger import logger
-from src.core.redis_client import redis_client
+from src.database.database import users_collection
+from src.database.redis_client import redis_client
 
 load_dotenv()
 

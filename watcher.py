@@ -5,9 +5,9 @@ import pandas as pd
 import pytz
 import yfinance as yf
 
-from src.core.database import alerts_collection, signals_collection
 from src.core.logger import logger
-from src.core.news_collector import analyze_news_sentiment, fetch_market_news
+from src.database.database import alerts_collection, signals_collection
+from src.feature.news_collector import analyze_news_sentiment, fetch_market_news
 
 # CONFIG BIAYA (Simulasi Real Market)
 SPREAD_PIPS = 2  # Spread rata-rata (Forex)

@@ -1,8 +1,8 @@
 import asyncio
 from datetime import datetime, timezone
 
-from src.core.database import users_collection
 from src.core.logger import logger
+from src.database.database import users_collection
 
 # # Mockup fungsi kirim notifikasi (Nanti diganti Email/WA Gateway)
 # async def send_notification(user, days_left):

@@ -8,9 +8,10 @@ import torch
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.core.agent import ai_agent
-from src.core.data_loader import load_historical_data
 from src.core.logger import logger
 from src.core.trainer import train_model_pipeline  # Asumsi fungsi training utama
+from src.database.data_loader import load_historical_data
+from src.feature.feature_enginering import enrich_data
 
 # Reload Model di Memory (Penting!)
 

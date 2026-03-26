@@ -1,9 +1,9 @@
 import asyncio
 import json
 
-from src.core.database import db
 from src.core.logger import logger
-from src.core.redis_client import redis_client
+from src.database.database import db
+from src.database.redis_client import redis_client
 
 STREAM_KEY = "market_ticks_stream"
 GROUP_NAME = "backend_workers"

@@ -2,7 +2,7 @@ from typing import Any, Optional
 
 import msgpack
 
-from src.core.redis_client import redis_client
+from src.database.redis_client import redis_client
 
 
 class SmartCache:

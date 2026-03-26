@@ -29,3 +29,16 @@ textblob
 ccxt
 apscheduler
 python-telegram-bot
+pypdf                  # src/api/chat_routes.py, src/feature/financial_report_analyzer.py
+msgpack                # src/database/cache_manager.py
+pytz                   # src/feature/market_schedule.py, watcher.py
+fastapi-limiter        # src/api/auth_routes.py
+redis                  # src/database/redis_client.py
+slowapi                # main.py, src/api/auth_routes.py
+python-dateutil        # src/feature/news_collector.py
+networkx               # src/database/graph_analyzer.py
+
+# Untuk keperluan testing
+httpx                  # tests/test_main.py, tests/test_analysis_flow.py
+pytest-asyncio         # Semua file test async
+pytest     
