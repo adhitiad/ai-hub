@@ -97,7 +97,11 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
                     "forex", risk_manager.SYSTEM_BALANCE
                 )
 
-        can_trade, reject_reason = await check_circuit_breaker(balance=balance_for_risk)
+        can_trade, reject_reason = await check_circuit_breaker(
+            balance=balance_for_risk,
+            max_daily_loss_percent=risk_manager.MAX_DAILY_LOSS_PERCENT,
+            max_consecutive_losses=risk_manager.MAX_CONSECUTIVE_LOSSES
+        )
         if not can_trade:
             return False
 
@@ -143,12 +147,39 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         confidence = 50.0
 
         if model:
-            df_features = get_model_input(df)
-            scaler = StandardScaler()
-            scaled_features = scaler.fit_transform(df_features)
-
-            last_obs_features = scaled_features[-1]
-            obs = np.append(last_obs_features, [0]).astype(np.float32)
+            expected_shape = getattr(model.observation_space, "shape", (8,))[0]
+            if expected_shape == 15:
+                exclude_cols = ["timestamp", "date", "symbol", "target"]
+                feature_cols = [c for c in df.columns if c not in exclude_cols]
+                obs = df.iloc[-1][feature_cols].values.astype(np.float32)
+                if obs.shape[0] < 15:
+                    obs = np.pad(obs, (0, 15 - obs.shape[0]), mode='constant')
+                elif obs.shape[0] > 15:
+                    obs = obs[:15]
+            elif expected_shape == 5:
+                last_row = df.iloc[-1]
+                close_min = df["Close"].min()
+                close_max = df["Close"].max()
+                close_scaled = (last_row["Close"] - close_min) / (close_max - close_min + 1e-9)
+                bandar_accum_score = 0
+                if "Volume" in df.columns:
+                    vol_mean = df["Volume"].rolling(20).mean().iloc[-1]
+                    direction = 1 if last_row.get("Close", 0) > last_row.get("Open", 0) else -1
+                    bandar_accum_score = (direction * last_row["Volume"]) / (vol_mean if vol_mean else 1)
+                
+                obs = np.array([
+                    close_scaled,
+                    last_row.get("RSI_14", 50) / 100.0,
+                    last_row.get("MACD_12_26_9", 0),
+                    bandar_accum_score,
+                    last_row.get("ATR_14", 0)
+                ], dtype=np.float32)
+            else:
+                df_features = get_model_input(df)
+                scaler = StandardScaler()
+                scaled_features = scaler.fit_transform(df_features)
+                last_obs_features = scaled_features[-1]
+                obs = np.append(last_obs_features, [0]).astype(np.float32)
 
             action, _ = await asyncio.to_thread(model.predict, obs)
             action_map = {0: "HOLD", 1: "BUY", 2: "SELL"}
