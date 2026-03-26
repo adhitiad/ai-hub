@@ -27,10 +27,10 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from src.core.config_assets import get_asset_info
 
 # Impor core modules
-from src.core.data_loader import fetch_data_async
-from src.core.database import assets_collection
+from src.database.data_loader import fetch_data_async
+from src.database.database import assets_collection
 from src.core.env import TradingEnv
-from src.core.feature_enginering import enrich_data
+from src.feature.feature_enginering import enrich_data
 from src.core.logger import logger
 
 # Load environment variables
@@ -151,8 +151,12 @@ async def run_batch_training(
     return success_count, failed_count
 
 
+async def _get_all_assets():
+    return await assets_collection.find({}).to_list(length=1000)
+
+
 async def _get_assets_by_category(category: str):
-    assets = await assets_collection.find({}).to_list(length=1000)
+    assets = await _get_all_assets()
     assets = [a for a in assets if a.get("category", "").lower() == category.lower()]
     return [a["symbol"] for a in assets]
 
@@ -204,7 +208,7 @@ def main():
     args = parser.parse_args()
 
     if args.list_categories:
-        assets = asyncio.run(assets_collection.find({}).to_list(length=1000))
+        assets = asyncio.run(_get_all_assets())
         categories = set(a.get("category", "UNKNOWN").lower() for a in assets)
         print("Available categories:")
         for category in sorted(categories):

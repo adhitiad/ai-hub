@@ -18,12 +18,12 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
 
 # --- IMPORTS ---
-from src.core.data_loader import fetch_data_async
-from src.core.database import assets_collection
+from src.database.data_loader import fetch_data_async
+from src.database.database import assets_collection
 from src.core.env import TradingEnv
 
 # [PENTING] Import Feature Engineering agar model pintar
-from src.core.feature_enginering import enrich_data, get_model_input
+from src.feature.feature_enginering import enrich_data, get_model_input
 from src.core.logger import logger
 
 dotenv.load_dotenv()

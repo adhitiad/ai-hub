@@ -26,10 +26,10 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from src.core.config_assets import get_asset_info
 
 # Impor core modules
-from src.core.data_loader import fetch_data_async
-from src.core.database import assets_collection
+from src.database.data_loader import fetch_data_async
+from src.database.database import assets_collection
 from src.core.env import TradingEnv
-from src.core.feature_enginering import enrich_data
+from src.feature.feature_enginering import enrich_data
 from src.core.logger import logger
 
 # Load environment variables

@@ -17,8 +17,8 @@ logging.getLogger("gym").setLevel(logging.ERROR)
 warnings.filterwarnings("ignore", message=".*Gym has been unmaintained.*")
 
 from src.core.agent import ai_agent
-from src.core.data_loader import load_historical_data
-from src.core.database import assets_collection
+from src.database.data_loader import load_historical_data
+from src.database.database import assets_collection
 from src.core.logger import logger
 
 

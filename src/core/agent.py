@@ -148,14 +148,14 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
 
         if model:
             expected_shape = getattr(model.observation_space, "shape", (8,))[0]
-            if expected_shape == 15:
+            if expected_shape > 8:
                 exclude_cols = ["timestamp", "date", "symbol", "target"]
                 feature_cols = [c for c in df.columns if c not in exclude_cols]
                 obs = df.iloc[-1][feature_cols].values.astype(np.float32)
-                if obs.shape[0] < 15:
-                    obs = np.pad(obs, (0, 15 - obs.shape[0]), mode='constant')
-                elif obs.shape[0] > 15:
-                    obs = obs[:15]
+                if obs.shape[0] < expected_shape:
+                    obs = np.pad(obs, (0, expected_shape - obs.shape[0]), mode='constant')
+                elif obs.shape[0] > expected_shape:
+                    obs = obs[:expected_shape]
             elif expected_shape == 5:
                 last_row = df.iloc[-1]
                 close_min = df["Close"].min()
