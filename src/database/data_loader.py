@@ -60,14 +60,12 @@ async def fetch_crypto_ohlcv(symbol, timeframe="1h", limit=1000):
 
             if ohlcv and len(ohlcv) > 0:
                 logger.info(
-                    f"✅ Found {symbol} on {ex_name.upper()} ({len(ohlcv)} candles)"
+                    "✅ Found %s on %s (%d candles)", symbol, ex_name.upper(), len(ohlcv)
                 )
 
                 # Convert ke DataFrame
-                df = pd.DataFrame(
-                    ohlcv,
-                    columns=["timestamp", "Open", "High", "Low", "Close", "Volume"],
-                )
+                cols: list = ["timestamp", "Open", "High", "Low", "Close", "Volume"]
+                df = pd.DataFrame(ohlcv, columns=cols)
                 df["Date"] = pd.to_datetime(df["timestamp"], unit="ms")
                 df.set_index("Date", inplace=True)
                 del df["timestamp"]
@@ -82,7 +80,7 @@ async def fetch_crypto_ohlcv(symbol, timeframe="1h", limit=1000):
             await _close_exchange(exchange)
 
     # Jika sudah cek semua exchange tapi nihil
-    logger.warning(f"❌ {symbol} not found on any configured exchanges.")
+    logger.warning("❌ %s not found on any configured exchanges.", symbol)
     return pd.DataFrame()
 
 
@@ -95,7 +93,7 @@ def _fetch_yfinance_sync(symbol, period, interval):
             df = ticker.history(period="max", interval=interval, auto_adjust=False)
         return df
     except Exception as e:
-        logger.error(f"YF Error {symbol}: {e}")
+        logger.error("YF Error %s: %s", symbol, e)
         return pd.DataFrame()
 
 
@@ -158,7 +156,7 @@ async def fetch_data_async(symbol, period="2y", interval="1h"):
         return df_clean
 
     except Exception as e:
-        logger.error(f"Indicator Error {symbol}: {e}")
+        logger.error("Indicator Error %s: %s", symbol, e)
         return pd.DataFrame()
 
 

@@ -1,5 +1,4 @@
 import asyncio
-import logging
 
 import requests
 
@@ -26,9 +25,9 @@ async def send_telegram_message(chat_id, message):
     try:
         response = await asyncio.to_thread(requests.post, url, json=payload, timeout=5)
         if response.status_code != 200:
-            logger.error(f"Telegram Fail: {response.text}")
+            logger.error("Telegram Fail: %s", response.text)
     except Exception as e:
-        logger.error(f"Telegram Error: {e}")
+        logger.error("Telegram Error: %s", e)
 
 
 def format_signal_message(signal_data):

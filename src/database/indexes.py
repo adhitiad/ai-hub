@@ -65,9 +65,9 @@ async def analyze_query_performance(db: AsyncIOMotorClient):
     )
 
     for query in slow_queries:
-        logger.warning(f"Slow query: {query['ns']} - {query['millis']}ms")
-        logger.warning(f"Query: {query.get('query', 'N/A')}")
-        logger.warning(f"Plan: {query.get('planSummary', 'N/A')}")
+        logger.warning("Slow query: %s - %sms", query['ns'], query['millis'])
+        logger.warning("Query: %s", query.get('query', 'N/A'))
+        logger.warning("Plan: %s", query.get('planSummary', 'N/A'))
         logger.warning("---")
 
     return slow_queries

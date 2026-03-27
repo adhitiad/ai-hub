@@ -90,7 +90,7 @@ async def notify_expiring_users():
 
 async def send_message(user, message, msg_type="INFO"):
     """Fungsi dummy pengirim pesan (Email/WA)"""
-    logger.info(f"📩 [{msg_type}] To {user['email']}: {message}")
+    logger.info("📩 [%s] To %s: %s", msg_type, user['email'], message)
     # Integration point: send_email(user['email'], message)
 
 
@@ -201,7 +201,7 @@ async def check_subscriptions():
                 },  # Hapus flag bonus
             },
         )
-        logger.info(f"⬇️ BONUS ENDED: User {user['email']} downgraded to {new_role}")
+        logger.info("⬇️ BONUS ENDED: User %s downgraded to %s", user['email'], new_role)
 
     # --- 2. CEK SUBSCRIPTION EXPIRY (Premium/Ent -> Free) ---
     # Cari user yang subscription_end_date < sekarang DAN role bukan 'free'
@@ -224,7 +224,7 @@ async def check_subscriptions():
                 }
             },
         )
-        logger.info(f"🚫 SUBSCRIPTION EXPIRED: User {user['email']} set to FREE")
+        logger.info("🚫 SUBSCRIPTION EXPIRED: User %s set to FREE", user['email'])
 
 
 async def start_scheduler():
@@ -236,7 +236,7 @@ async def start_scheduler():
             await notify_expiring_users()
             await notify_status_updates()
         except Exception as e:
-            logger.error(f"Scheduler Error: {e}")
+            logger.error("Scheduler Error: %s", e)
 
         # Cek setiap 4 jam (14400 detik) agar tidak membebani server
         await asyncio.sleep(14400)

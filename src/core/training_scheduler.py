@@ -34,7 +34,7 @@ async def reload_ai_models():
         ai_agent.model.policy.load_state_dict(state_dict)
         logger.info("✅ AI Models reloaded successfully")
     except Exception as e:
-        logger.error(f"❌ Failed to reload models: {e}")
+        logger.error("❌ Failed to reload models: %s", e)
 
 
 async def weekly_retraining_job():
@@ -60,7 +60,7 @@ async def weekly_retraining_job():
         new_accuracy = new_metrics.get("win_rate", 0)
 
         logger.info(
-            f"📊 Model Comparison: Old={old_accuracy:.2f} vs New={new_accuracy:.2f}"
+            "📊 Model Comparison: Old=%.2f vs New=%.2f", old_accuracy, new_accuracy
         )
 
         # 3. Compare & Swap
@@ -87,7 +87,7 @@ async def weekly_retraining_job():
                 os.remove(temp_model_path)
 
     except Exception as e:
-        logger.error(f"❌ Training Failed: {e}")
+        logger.error("❌ Training Failed: %s", e)
 
 
 async def training_scheduler_task():
@@ -106,9 +106,6 @@ async def training_scheduler_task():
 async def nightly_training(symbol, limit=1000):
     # 1. Load data 1000 candle terakhir
     df = load_historical_data(symbol)
-
-    # 2. Lakukan feature engineering (hitung RSI, MACD, Scaled Close)
-    from src.core.feature_enginering import enrich_data
 
     df = enrich_data(df)
 

@@ -18,16 +18,16 @@ async def save_signal_background(signal_data):
     """Saves the trading signal data to the database."""
     try:
         await signals_collection.insert_one(signal_data)
-        logger.info(f"💾 DB Async Save: {signal_data['symbol']}")
+        logger.info("💾 DB Async Save: %s", signal_data['symbol'])
     except Exception as e:
-        logger.error(f"❌ DB Save Failed: {e}")
+        logger.error("❌ DB Save Failed: %s", e)
 
 
 async def process_single(asset_info):
     allowed, reason = await risk_manager.can_trade()
 
     if not allowed:
-        logger.warning(f"⚠️ Daily Loss Limit Hit. Trading Paused. Reason: {reason}")
+        logger.warning("⚠️ Daily Loss Limit Hit. Trading Paused. Reason: %s", reason)
         return False
 
     symbol = asset_info["symbol"]
@@ -36,7 +36,7 @@ async def process_single(asset_info):
     try:
         data = await get_detailed_signal(symbol, asset_info)
     except Exception as e:
-        logger.error(f"⚠️ Error generating signal for {symbol}: {e}")
+        logger.error("⚠️ Error generating signal for %s: %s", symbol, e)
         return False
 
     if not data or (isinstance(data, dict) and "error" in data) or "Action" not in data:
@@ -84,15 +84,15 @@ async def process_single(asset_info):
 
             # Jika belum ada trade aktif untuk koin/saham ini
             if not is_active:
-                logger.info(f"🚨 NEW SIGNAL DETECTED: {symbol} - {data['Action']}")
+                logger.info("🚨 NEW SIGNAL DETECTED: %s - %s", symbol, data['Action'])
 
                 # A. Broadcast ke Frontend (WebSocket via Redis Pub/Sub)
                 if redis_conn:
                     try:
                         await redis_conn.publish("signal:all", json.dumps(data))
-                        logger.info(f"🌐 Broadcasted {symbol} to Frontend WS")
+                        logger.info("🌐 Broadcasted %s to Frontend WS", symbol)
                     except Exception as e:
-                        logger.error(f"Failed to publish to WS: {e}")
+                        logger.error("Failed to publish to WS: %s", e)
 
                 # B. Broadcast ke Telegram
                 if telegram_bot:
@@ -145,5 +145,5 @@ async def signal_producer_task():
             await asyncio.sleep(60)
 
         except Exception as e:
-            logger.error(f"Producer Loop Error: {e}")
+            logger.error("Producer Loop Error: %s", e)
             await asyncio.sleep(10)

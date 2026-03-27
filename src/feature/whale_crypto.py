@@ -91,7 +91,7 @@ async def analyze_crypto_whales(symbol: str):
             }
 
         except Exception as e:
-            logger.error(f"Whale Analysis Error ({symbol} on {ex_name}): {e}")
+            logger.error("Whale Analysis Error (%s on %s): %s", symbol, ex_name, e)
             await _close_exchange(exchange)
             continue
 

@@ -103,4 +103,4 @@ class TradingEnvironment(gym.Env):
         return self._next_observation(), reward, done, truncated, info
 
     def render(self, mode="human"):
-        logger.info(f"Step: {self.current_step}, Net Worth: {self.net_worth}")
+        logger.info("Step: %s, Net Worth: %s", self.current_step, self.net_worth)

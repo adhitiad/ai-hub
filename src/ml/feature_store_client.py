@@ -57,7 +57,7 @@ class FeatureStoreClient:
 
         # Simpan ke offline store (Parquet file)
         df.to_parquet(f"data/{symbol}_features.parquet")
-        logger.info(f"✅ Features saved to data/{symbol}_features.parquet")
+        logger.info("✅ Features saved to data/%s_features.parquet", symbol)
 
         # Materialize features ke online store (akan mengambil dari offline store)
         # Materialize features untuk waktu terbaru
@@ -89,13 +89,13 @@ class FeatureStoreClient:
 
             return features
         except Exception as e:
-            logger.error(f"Failed to get recent features for {symbol}: {e}")
+            logger.error("Failed to get recent features for %s: %s", symbol, e)
             return pd.DataFrame()
 
     def materialize(self, start_date: datetime, end_date: datetime):
         """Materialize features dari offline ke online store"""
         self.store.materialize(start_date, end_date)
-        logger.info(f"✅ Features materialized: {start_date} to {end_date}")
+        logger.info("✅ Features materialized: %s to %s", start_date, end_date)
 
 
 # Penggunaan dalam training

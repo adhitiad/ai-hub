@@ -29,7 +29,7 @@ def enrich_data(df: pd.DataFrame) -> pd.DataFrame:
     # Validasi kolom wajib
     required = ["Close", "Volume"]
     if not all(col in df.columns for col in required):
-        logger.warning(f"❌ Missing required columns for features: {df.columns}")
+        logger.warning("❌ Missing required columns for features: %s", df.columns)
         return df
 
     try:
@@ -63,7 +63,7 @@ def enrich_data(df: pd.DataFrame) -> pd.DataFrame:
         df.fillna(0, inplace=True)
 
     except Exception as e:
-        logger.error(f"⚠️ Feature Engineering Error: {e}")
+        logger.error("⚠️ Feature Engineering Error: %s", e)
 
     return df
 
@@ -75,4 +75,5 @@ def get_model_input(df: pd.DataFrame) -> pd.DataFrame:
         if col not in df.columns:
             df[col] = 0.0
 
-    return df[FEATURE_COLUMNS]
+    result = df[FEATURE_COLUMNS]
+    return pd.DataFrame(result)

@@ -23,7 +23,7 @@ class ModelRegistry:
         model_version = mlflow.register_model(
             model_uri=f"runs:/{run_id}/model", name=model_name
         )
-        logger.info(f"✅ Model registered: {model_name} v{model_version.version}")
+        logger.info("✅ Model registered: %s v%s", model_name, model_version.version)
         return model_version
 
     def transition_stage(
@@ -42,7 +42,7 @@ class ModelRegistry:
             name=model_name, version=str(version), description=description
         )
 
-        print(f"🔄 Model {model_name} v{version} moved to {stage.value}")
+        logger.info("🔄 Model %s v%s moved to %s", model_name, version, stage.value)
 
     def get_production_model(self, symbol: str):
         """Get model production untuk symbol tertentu"""

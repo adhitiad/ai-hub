@@ -38,13 +38,13 @@ class ModelCache:
                 latest_file = files[0]
                 try:
                     # Load model ke RAM
-                    logger.info(f"📥 Loading Model to RAM: {safe_symbol}")
+                    logger.info("📥 Loading Model to RAM: %s", safe_symbol)
                     # Jalankan load di thread terpisah agar tidak block async loop
                     model = await asyncio.to_thread(PPO.load, latest_file)
                     cls._models[safe_symbol] = model
                     return model
                 except Exception as e:
-                    logger.error(f"Failed load model {symbol}: {e}")
+                    logger.error("Failed load model %s: %s", symbol, e)
                     return None
             return None
 

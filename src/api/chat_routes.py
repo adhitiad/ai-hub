@@ -33,7 +33,7 @@ class FinancialReportAnalyzer:
 
             return text
         except Exception as e:
-            logger.error(f"PDF Extraction failed: {e}")
+            logger.error("PDF Extraction failed: %s", e)
             return ""
 
     async def analyze_report(self, symbol: str, pdf_bytes: bytes):
@@ -88,7 +88,7 @@ class FinancialReportAnalyzer:
 
             return json.loads(response)
         except Exception as e:
-            logger.error(f"LLM Analysis failed: {e}")
+            logger.error("LLM Analysis failed: %s", e)
             return {"error": "Gagal menganalisis laporan", "raw_response": str(e)}
 
 

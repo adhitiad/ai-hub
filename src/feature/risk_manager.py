@@ -17,7 +17,7 @@ class RiskManager:
     async def can_trade(self) -> tuple[bool, str]:
         allowed, reason = await self._check_circuit_breaker()
         if not allowed:
-            logger.warning(f"⛔ RISK MANAGER: Trading Halted! Reason: {reason}")
+            logger.warning("⛔ RISK MANAGER: Trading Halted! Reason: %s", reason)
         return allowed, reason
 
     async def _check_circuit_breaker(self):

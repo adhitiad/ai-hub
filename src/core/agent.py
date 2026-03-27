@@ -17,7 +17,7 @@ from src.core.config_assets import ASSETS, get_asset_info
 from src.core.forex_engine import ForexEngine
 from src.core.logger import logger
 from src.core.rl_environment import TradingEnvironment as TradingEnv
-from src.core.scoring import calculate_technical_score
+# from src.core.scoring import calculate_technical_score
 from src.database.data_loader import fetch_data_async
 from src.database.vector_db import recall_similar_events
 from src.feature.cryto_analysis import CryptoAnalyst
@@ -28,7 +28,7 @@ from src.feature.pattern_recognizer import detect_chart_patterns
 
 # --- 3. RISK & MONEY MANAGEMENT ---
 from src.feature.risk_manager import check_circuit_breaker, risk_manager
-from src.feature.smart_money import analyze_smart_money
+# from src.feature.smart_money import analyze_smart_money
 from src.feature.whale_crypto import analyze_crypto_whales
 
 # --- 4. OPTIONAL MODULES (ML & News) ---
@@ -97,7 +97,8 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
                     "forex", risk_manager.SYSTEM_BALANCE
                 )
 
-        can_trade, reject_reason = await check_circuit_breaker(
+        # reject_reason tidak digunakan, biarkan untuk tracking jika perlu
+        can_trade, _ = await check_circuit_breaker(
             balance=balance_for_risk,
             max_daily_loss_percent=risk_manager.MAX_DAILY_LOSS_PERCENT,
             max_consecutive_losses=risk_manager.MAX_CONSECUTIVE_LOSSES
@@ -105,7 +106,7 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         if not can_trade:
             return False
 
-        is_uncorrelated, corr_msg = await check_correlation_risk(symbol)
+        is_uncorrelated, _ = await check_correlation_risk(symbol)
         if not is_uncorrelated:
             return False
 
@@ -136,7 +137,7 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         try:
             model = await asyncio.to_thread(PPO.load, latest_file)
         except Exception as e:
-            logger.error(f"Failed load model {symbol}: {e}")
+            logger.error("Failed load model %s: %s", symbol, e)
             return {"Symbol": symbol, "Action": "HOLD", "Reason": "No Model"}
 
         # --- F. DATA ENRICHMENT ---
@@ -163,7 +164,9 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
                 close_scaled = (last_row["Close"] - close_min) / (close_max - close_min + 1e-9)
                 bandar_accum_score = 0
                 if "Volume" in df.columns:
-                    vol_mean = df["Volume"].rolling(20).mean().iloc[-1]
+                    # Gunakan .values[-1] untuk menghindari masalah iloc pada type checker
+                    vol_mean_series = df["Volume"].rolling(20).mean()
+                    vol_mean = vol_mean_series.values[-1]
                     direction = 1 if last_row.get("Close", 0) > last_row.get("Open", 0) else -1
                     bandar_accum_score = (direction * last_row["Volume"]) / (vol_mean if vol_mean else 1)
                 
@@ -291,7 +294,7 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
             news_items = await asyncio.to_thread(
                 fetch_market_news, symbol, asset_type=asset_type
             )
-            news_score, news_summary = analyze_news_sentiment(symbol, news_items)
+            news_score, _ = analyze_news_sentiment(symbol, news_items)
             if news_score != 0:
                 sentiment = "Bullish" if news_score > 0 else "Bearish"
                 reasons.append(f"News: {sentiment}")
@@ -393,7 +396,7 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         return result
 
     except Exception as e:
-        logger.error(f"Agent Error ({symbol}): {str(e)}")
+        logger.error("Agent Error (%s): %s", symbol, e)
         return {"error": f"Agent Error ({symbol}): {str(e)}"}
 
 
@@ -429,9 +432,9 @@ class TradingAgent:
         if latest_path:
             try:
                 self.model = PPO.load(latest_path)
-                logger.info(f"🧠 AI Brain Loaded Successfully: {latest_path}")
+                logger.info("🧠 AI Brain Loaded Successfully: %s", latest_path)
             except Exception as e:
-                logger.error(f"❌ Failed to load AI Brain: {e}")
+                logger.error("❌ Failed to load AI Brain: %s", e)
         else:
             logger.info("⚠️ No AI Brain found. Need training first.")
 
@@ -475,15 +478,16 @@ class TradingAgent:
                 direction = 1
                 if "Open" in df.columns:
                     direction = np.where(df["Close"] > df["Open"], 1, -1)
-                vol_mean = df["Volume"].rolling(20).mean().replace(0, np.nan)
-                df["bandar_accum_score"] = (direction * df["Volume"]) / vol_mean
+                # Gunakan nilai numerik langsung daripada .replace untuk memuaskan type checker
+                vol_mean = df["Volume"].rolling(20).mean()
+                df["bandar_accum_score"] = (direction * df["Volume"]) / vol_mean.replace(0, np.nan)
             else:
                 df["bandar_accum_score"] = 0
 
         df.replace([np.inf, -np.inf], 0, inplace=True)
         df.fillna(0, inplace=True)
 
-        logger.info(f"🏋️ Starting Training Session ({timesteps} steps)...")
+        logger.info("🏋️ Starting Training Session (%s steps)...", timesteps)
 
         env = DummyVecEnv([lambda: TradingEnv(df)])
 
@@ -500,7 +504,7 @@ class TradingAgent:
             MODEL_DIR, f"{MODEL_BRAIN_PREFIX}_{date_str}_{timesteps}steps.zip"
         )
         self.model.save(model_path)
-        logger.info(f"✅ Training Finished. Brain Updated & Saved: {model_path}")
+        logger.info("✅ Training Finished. Brain Updated & Saved: %s", model_path)
 
     def _consult_rl_model(self, market_data):
         """
@@ -527,7 +531,7 @@ class TradingAgent:
 
         return {
             "action": action_str,
-            "reason": f"AI PPO Policy Decision based on Market State",
+            "reason": "AI PPO Policy Decision based on Market State",
             "raw_action": int(action_code),
             "features_used": obs,
         }

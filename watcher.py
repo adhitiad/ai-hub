@@ -5,9 +5,10 @@ import pandas as pd
 import pytz
 import yfinance as yf
 
+import ccxt.async_support as ccxt
+
 from src.core.logger import logger
 from src.database.database import alerts_collection, signals_collection
-from src.feature.news_collector import analyze_news_sentiment, fetch_market_news
 
 # CONFIG BIAYA (Simulasi Real Market)
 SPREAD_PIPS = 2  # Spread rata-rata (Forex)
@@ -15,20 +16,63 @@ COMMISSION_PCT = 0.1  # Komisi Saham (0.1% per transaksi)
 COMMISSION_FX = 7.0  # Komisi Forex ($7 per lot round turn)
 
 
-# Helper agar yfinance berjalan di thread terpisah (Non-blocking)
-async def fetch_live_price(symbol):
+# Helper fetch harga live untuk CRYPTO via CCXT
+async def _fetch_crypto_price(symbol):
+    """Fetch OHLCV terbaru untuk crypto pair (e.g. CKB/USDC) via CCXT."""
+    EXCHANGE_LIST = ["binance", "bybit", "gateio", "mexc", "okx", "kucoin"]
+    for ex_name in EXCHANGE_LIST:
+        exchange = None
+        try:
+            exchange_class = getattr(ccxt, ex_name)
+            exchange = exchange_class({"enableRateLimit": True})
+            ohlcv = await exchange.fetch_ohlcv(symbol, "1m", limit=2)
+            if ohlcv and len(ohlcv) > 0:
+                last = ohlcv[-1]  # [timestamp, open, high, low, close, volume]
+                return {
+                    "Close": last[4],
+                    "High": last[2],
+                    "Low": last[3],
+                }
+        except Exception:
+            pass
+        finally:
+            if exchange:
+                try:
+                    await exchange.close()
+                except Exception:
+                    pass
+    return None
+
+
+# Helper fetch harga live untuk SAHAM/FOREX via yfinance
+async def _fetch_yf_price(symbol):
     def _fetch():
         try:
             ticker = yf.Ticker(symbol)
-            # Fast fetch 1 hari terakhir, 1 menit interval (lebih ringan)
             df = ticker.history(period="1d", interval="1m")
             if df.empty:
                 return None
             return df.iloc[-1]
-        except:
+        except Exception:
             return None
-
     return await asyncio.to_thread(_fetch)
+
+
+async def fetch_live_price(symbol):
+    """Smart Price Fetcher: CCXT untuk crypto ('/'), yfinance untuk saham/forex."""
+    if "/" in symbol:
+        result = await _fetch_crypto_price(symbol)
+        return result  # dict {Close, High, Low} atau None
+    else:
+        row = await _fetch_yf_price(symbol)
+        if row is None:
+            return None
+        # Kembalikan sebagai dict agar format sama
+        return {
+            "Close": float(row["Close"]),
+            "High": float(row["High"]),
+            "Low": float(row["Low"]),
+        }
 
 
 # HAPUS: import requests_cache
@@ -91,7 +135,7 @@ async def check_positions():
                         }
                     },
                 )
-                logger.info(f"✅ ORDER FILLED: {symbol} at {entry_price}")
+                logger.info("✅ ORDER FILLED: %s at %s", symbol, entry_price)
                 # Opsional: Kirim Notif Telegram "Order Filled"
 
             continue  # Lanjut ke signal berikutnya, jangan cek TP/SL dulu
@@ -99,7 +143,15 @@ async def check_positions():
         # --- LOGIKA B: HANDLE OPEN POSITIONS (TP/SL Check) ---
         # Hitung PnL Floating dengan BIAYA (Spread/Komisi)
 
-        entry_price = sig.get("fill_price", sig["price"])
+        entry_price = (
+            sig.get("fill_price") or sig.get("price") or sig.get("entry_price")
+        )
+        if entry_price is None:
+            logger.warning(
+                "⚠️ Skipping %s: no entry price found (fill_price/price/entry_price missing)",
+                symbol,
+            )
+            continue
         lot_size = sig.get("lot_size_num", 0.01)
         asset_type = sig.get("asset_type", "forex")
 
@@ -162,7 +214,9 @@ async def check_positions():
                         }
                     },
                 )
-                logger.info(f"🏁 TRADE CLOSED {symbol}: {final_status} ({pnl_net:.2f})")
+                logger.info(
+                    "🏁 TRADE CLOSED %s: %s (%.2f)", symbol, final_status, pnl_net
+                )
 
 
 async def check_alerts(df, symbol):
@@ -207,7 +261,7 @@ async def check_alerts(df, symbol):
                 pass
 
         if triggered:
-            logger.info(f"🚨 ALERT TRIGGERED: {symbol} - {alert['note']}")
+            logger.info("🚨 ALERT TRIGGERED: %s - %s", symbol, alert["note"])
             await alerts_collection.update_one(
                 {"_id": alert["_id"]},
                 {

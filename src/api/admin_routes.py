@@ -134,7 +134,7 @@ async def process_upgrade_request(
                     session=session,
                 )
                 logger.info(
-                    f"✅ User {request_data['user_email']} promoted by {user['email']}"
+                    "✅ User %s promoted by %s", request_data['user_email'], user['email']
                 )
 
     # Update status request

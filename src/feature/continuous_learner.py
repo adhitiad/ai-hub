@@ -46,7 +46,7 @@ async def train_weekly_models_async():
     """
 
     today_str = datetime.date.today().strftime("%Y-%m-%d")
-    logger.info(f"🔄 STARTING WEEKLY RETRAINING WITH MEMORY: {today_str}")
+    logger.info("🔄 STARTING WEEKLY RETRAINING WITH MEMORY: %s", today_str)
 
     for category, items in ASSETS.items():
         for symbol in items:
@@ -57,9 +57,9 @@ async def train_weekly_models_async():
                     continue
 
                 # 2. AMBIL INGATAN MASA LALU (MISTAKES)
-                logger.info(f"🧠 Loading bad memories for {symbol}...")
+                logger.info("🧠 Loading bad memories for %s...", symbol)
                 mistakes = await get_mistake_history(symbol)
-                logger.info(f"found {len(mistakes)} historical errors to learn from.")
+                logger.info("found %s historical errors to learn from.", len(mistakes))
 
                 # 3. Masukkan Memori ke Environment
                 env = TradingEnv(df, mistakes_data=mistakes)
@@ -85,10 +85,10 @@ async def train_weekly_models_async():
                 os.makedirs(os.path.dirname(save_path), exist_ok=True)
                 model.save(save_path)
 
-                logger.info(f"✅ Model Updated: {save_path}")
+                logger.info("✅ Model Updated: %s", save_path)
 
             except Exception as e:
-                logger.error(f"❌ Error training {symbol}: {e}")
+                logger.error("❌ Error training %s: %s", symbol, e)
 
     logger.info("🏁 WEEKLY RETRAINING FINISHED")
 

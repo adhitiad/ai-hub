@@ -7,7 +7,8 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo.errors import ConnectionFailure
+
+
 
 # PERBAIKAN: Gunakan logger bawaan sistem
 from src.core.logger import logger
@@ -65,7 +66,7 @@ async def init_db_indexes():
 
         logger.info("⚡ Database Indexes Optimized")
     except Exception as e:
-        logger.warning(f"⚠️ Warning during index creation: {e}")
+        logger.warning("⚠️ Warning during index creation: %s", e)
 
 
 async def regenerate_api_key(user_id: str) -> str:

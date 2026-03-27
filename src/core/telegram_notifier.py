@@ -31,7 +31,7 @@ class TelegramNotifier:
         try:
             requests.post(url, json=payload, timeout=5)
         except Exception as e:
-            logger.error(f"⚠️ Gagal kirim Telegram ke {chat_id}: {e}")
+            logger.error("⚠️ Gagal kirim Telegram ke %s: %s", chat_id, e)
 
     async def broadcast_signal(self, signal_data):
         if not TELEGRAM_BOT_TOKEN:
@@ -71,7 +71,7 @@ class TelegramNotifier:
             return
 
         logger.info(
-            f"📢 Broadcasting signal {symbol} to {len(users)} Telegram users..."
+            "📢 Broadcasting signal %s to %d Telegram users...", symbol, len(users)
         )
 
         tasks = [
@@ -81,7 +81,7 @@ class TelegramNotifier:
             for user in users
         ]
         await asyncio.gather(*tasks)
-        logger.info(f"✅ Telegram Broadcast untuk {symbol} selesai!")
+        logger.info("✅ Telegram Broadcast untuk %s selesai!", symbol)
 
     @staticmethod
     async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):

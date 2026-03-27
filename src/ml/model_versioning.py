@@ -80,5 +80,5 @@ class ModelVersioning:
             )
 
             run_id = run.info.run_id
-            logger.info(f"✅ Model logged with run_id: {run_id}")
+            logger.info("✅ Model logged with run_id: %s", run_id)
             return run_id

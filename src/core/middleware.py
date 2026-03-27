@@ -23,7 +23,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
         except Exception as e:
             # Jika error terjadi di tengah processing request (sebelum masuk route handler)
-            logger.error(f"🔥 Middleware Error: {str(e)}")
+            logger.error("🔥 Middleware Error: %s", e)
             raise e
 
         process_time = time.time() - start_time
@@ -51,7 +51,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 await db.logs.insert_one(log_entry)
                 print(f"📝 AUDIT: {log_entry}")
             except Exception as e:
-                logger.warning(f"⚠️ Failed to write audit log: {e}")
+                logger.warning("⚠️ Failed to write audit log: %s", e)
 
         # Ambil User Agent atau API Key (Masked) untuk log
         user_key = request.headers.get("X-API-KEY", "Anonymous")
@@ -67,9 +67,9 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         )
 
         if response.status_code >= 400:
-            logger.warning(f"⚠️ {log_msg}")
+            logger.warning("⚠️ %s", log_msg)
         else:
-            logger.info(f"✅ {log_msg}")
+            logger.info("✅ %s", log_msg)
 
         # Tambahkan Header Process-Time (Berguna untuk debug latency di frontend)
         response.headers["X-Process-Time"] = str(process_time)
@@ -86,7 +86,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     error_msg = str(exc)
     trace = traceback.format_exc()
 
-    logger.error(f"🔥 CRITICAL ERROR at {request.url.path}: {error_msg}\n{trace}")
+    logger.error("🔥 CRITICAL ERROR at %s: %s\n%s", request.url.path, error_msg, trace)
 
     return JSONResponse(
         status_code=500,

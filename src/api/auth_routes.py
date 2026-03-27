@@ -57,7 +57,7 @@ async def register_user(data: RegisterModel):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error registering user: {e}")
+        logger.error("Error registering user: %s", e)
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 

@@ -1,6 +1,7 @@
 import os
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
+
 
 import chromadb
 import dotenv
@@ -48,10 +49,10 @@ def save_news_vector(symbol, summary, sentiment_score, raw_text):
             metadatas=[meta],
             ids=[news_id],
         )
-        logger.info(f"💾 Vector Saved: {summary[:30]}...")
+        logger.info("💾 Vector Saved: %s...", summary[:30])
 
     except Exception as e:
-        logger.error(f"ChromaDB Save Error: {e}")
+        logger.error("ChromaDB Save Error: %s", e)
 
 
 def recall_similar_events(query_text, n_results=3):
@@ -92,5 +93,5 @@ def recall_similar_events(query_text, n_results=3):
         return history_context
 
     except Exception as e:
-        logger.error(f"ChromaDB Query Error: {e}")
+        logger.error("ChromaDB Query Error: %s", e)
         return []

@@ -29,15 +29,15 @@ class FinancialReportAnalyzer:
                         if page_text:
                             text += page_text + "\n"
                 except Exception as page_e:
-                    logger.error(f"Error extracting text from page {i+1}: {page_e}")
+                    logger.error("Error extracting text from page %d: %s", i+1, page_e)
                     continue
 
             return text
         except Exception as e:
-            logger.error(f"PDF Extraction failed: {e}")
+            logger.error("PDF Extraction failed: %s", e)
             import traceback
 
-            logger.error(f"Extraction error traceback: {traceback.format_exc()}")
+            logger.error("Extraction error traceback: %s", traceback.format_exc())
             return ""
 
     async def analyze_report(self, symbol: str, pdf_bytes: bytes):
@@ -89,11 +89,11 @@ class FinancialReportAnalyzer:
 
             return json.loads(response_str)
         except json.JSONDecodeError as e:
-            logger.error(f"LLM JSON Decode failed: {e}. Raw response: {response_str}")
+            logger.error("LLM JSON Decode failed: %s. Raw response: %s", e, response_str)
             return {
                 "error": "Gagal mem-parsing respons dari LLM",
                 "raw_response": response_str,
             }
         except Exception as e:
-            logger.error(f"LLM Analysis failed: {e}")
+            logger.error("LLM Analysis failed: %s", e)
             return {"error": "Gagal menganalisis laporan", "detail": str(e)}

@@ -1,7 +1,6 @@
-import numpy as np
-import pandas as pd
 
 from src.core.logger import logger
+
 from src.database.data_loader import fetch_data_async
 
 
@@ -61,7 +60,7 @@ async def check_mtf_trend(symbol, current_tf="1h"):
         return status, f"Price vs EMA200 ({higher_tf}) is {status}"
 
     except Exception as e:
-        logger.error(f"MTF Check Error {symbol}: {e}")
+        logger.error("MTF Check Error %s: %s", symbol, e)
         return "NEUTRAL", "Error"
 
 

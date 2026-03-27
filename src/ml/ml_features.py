@@ -25,7 +25,7 @@ class MarketMLAnalyzer:
             try:
                 self.rf_model = joblib.load(RF_MODEL_PATH)
             except Exception as e:
-                logger.error(f"Error loading RF model: {e}")
+                logger.error("Error loading RF model: %s", e)
                 self.rf_model = None
 
     def reload_model(self):
@@ -64,7 +64,7 @@ class MarketMLAnalyzer:
 
         try:
             scaled_data = self.scaler.fit_transform(data)
-            kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
+            kmeans = KMeans(n_clusters=3, random_state=42, n_init="auto")
             kmeans.fit(scaled_data)
 
             last_candle = scaled_data[-1].reshape(1, -1)
@@ -76,7 +76,7 @@ class MarketMLAnalyzer:
 
             return regime_map.get(cluster, 1)
         except Exception as e:
-            logger.error(f"KMeans Error: {e}")
+            logger.error("KMeans Error: %s", e)
             return 1
 
     def rf_signal_confirmation(self, df):
@@ -106,7 +106,7 @@ class MarketMLAnalyzer:
             return int((win_prob - 0.5) * 200)
 
         except Exception as e:
-            logger.error(f"RF Prediction Error: {e}")
+            logger.error("RF Prediction Error: %s", e)
             return 0
 
 

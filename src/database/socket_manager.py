@@ -16,7 +16,7 @@ class ConnectionManager:
         if symbol not in self.active_connections:
             self.active_connections[symbol] = []
         self.active_connections[symbol].append(websocket)
-        logger.info(f"🔌 WS Connected: {symbol}")
+        logger.info("🔌 WS Connected: %s", symbol)
 
     def disconnect(self, websocket: WebSocket, symbol: str):
         if symbol in self.active_connections:
@@ -24,7 +24,7 @@ class ConnectionManager:
                 self.active_connections[symbol].remove(websocket)
             if not self.active_connections[symbol]:
                 del self.active_connections[symbol]
-        logger.info(f"🔌 WS Disconnected: {symbol}")
+        logger.info("🔌 WS Disconnected: %s", symbol)
 
     async def broadcast(self, symbol: str, data: dict):
         if symbol in self.active_connections:
@@ -65,4 +65,4 @@ async def redis_connector_task():
                         await manager.broadcast(symbol, data)
 
                 except Exception as e:
-                    logger.error(f"WS Broadcast Error: {e}")
+                    logger.error("WS Broadcast Error: %s", e)

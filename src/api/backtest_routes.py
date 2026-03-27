@@ -37,6 +37,6 @@ async def run_backtest(
     except HTTPException as e:
         raise e
     except Exception as e:
-        logger.error(f"Backtest Error for {symbol}: {str(e)}")
+        logger.error("Backtest Error for %s: %s", symbol, e)
         logger.error(traceback.format_exc())
-        raise HTTPException(500, f"Backtest Error: {str(e)}")
+        raise HTTPException(500, "Backtest Error: %s" % e)

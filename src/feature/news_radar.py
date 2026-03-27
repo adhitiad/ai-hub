@@ -32,7 +32,7 @@ class NewsRadar:
 
             if response.status_code != 200:
                 logger.error(
-                    f"Failed to fetch calendar. Status: {response.status_code}"
+                    "Failed to fetch calendar. Status: %s", response.status_code
                 )
                 return []
 
@@ -115,11 +115,11 @@ class NewsRadar:
                         }
                     )
 
-            logger.info(f"✅ Scraped {len(data)} events successfully.")
+            logger.info("✅ Scraped %d events successfully.", len(data))
             return data
 
         except Exception as e:
-            logger.error(f"❌ Error scraping news: {e}")
+            logger.error("❌ Error scraping news: %s", e)
             return []
 
     def get_upcoming_events(self, limit=10):

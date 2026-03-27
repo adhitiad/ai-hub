@@ -56,5 +56,5 @@ async def replay_market_data(websocket: WebSocket, symbol: str, date: str):
         await websocket.close()
 
     except Exception as e:
-        logger.error(f"Replay Error: {e}")
+        logger.error("Replay Error: %s", e)
         await websocket.close()
