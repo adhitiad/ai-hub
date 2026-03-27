@@ -1,96 +1,246 @@
-# Training Files Documentation
+# Implementasi Halaman Frontend untuk Semua Backend Routes
 
-Dokumentasi untuk file training yang disediakan:
+## Latar Belakang
 
-## 1. train_single.py
+Backend FastAPI memiliki **17 router** yang terdaftar di `main.py`. Saat ini frontend hanya meng-cover **2 dari 17** router (Auth + Dashboard). Perlu ditambahkan halaman dan service API untuk **15 router yang tersisa**, plus global endpoints.
 
-File untuk melatih model single asset dengan konfigurasi yang mudah diatur.
+## Pemetaan Router Backend → Frontend
 
-### Usage:
+### ✅ Sudah Diimplementasi
 
-```bash
-# Melatih asset BBCA.JK dengan konfigurasi default
-python train_single.py BBCA.JK
+| Router             | Prefix       | Frontend                 |
+| ------------------ | ------------ | ------------------------ |
+| `auth_router`      | `/auth`      | ✅ `/login`, `/register` |
+| `dashboard_router` | `/dashboard` | ✅ `/dashboard`          |
 
-# Melatih asset dengan konfigurasi custom
-python train_single.py BTCUSDT --timesteps 20000 --period 1y --interval 30m
+### 🔨 Perlu Diimplementasi (Dikelompokkan per Prioritas)
 
-# List semua asset yang tersedia di database
-python train_single.py --list
+---
 
-# List asset berdasarkan kategori
-python train_single.py --list --category crypto
-```
+#### **Grup 1: Market & Trading Core** (Halaman utama user)
 
-### Parameters:
+##### 1. Market Data (`/market`)
 
-| Parameter       | Deskripsi                                                           | Default |
-| --------------- | ------------------------------------------------------------------- | ------- |
-| symbol          | Symbol asset yang akan dilatih (required)                           | -       |
-| --timesteps, -t | Total timesteps untuk training                                      | 15000   |
-| --period, -p    | Periode data yang akan diambil (contoh: 1y, 6mo, 30d)               | 2y      |
-| --interval, -i  | Interval data (contoh: 5m, 15m, 1d)                                 | 1h      |
-| --list, -l      | List semua asset yang tersedia                                      | False   |
-| --category, -c  | Category asset untuk filtering (contoh: stocks_indo, crypto, forex) | None    |
+- `GET /market/chart/{symbol}` — OHLCV + Indikator (TradingView-like chart)
+- `GET /market/depth/{symbol}` — Orderbook Bid/Offer
+- `GET /market/crypto/summary` — Crypto whale data + Fear & Greed
+- `GET /market/bandar/{symbol}` — Bandarmology (Akumulasi/Distribusi)
+- `GET /market/forex/summary` — Forex strength meter
+- `POST /market/get-signal` — AI signal request
 
-## 2. train_batch.py
+**Frontend:** `/dashboard/market` — Halaman market data dengan tabs (Chart, Crypto, Forex, Bandar)
 
-File untuk melatih beberapa asset sekaligus (batch training) dengan batasan concurrency.
+##### 2. Search (`/search`)
 
-### Usage:
+- `GET /search/?q=` — Cari aset berdasarkan simbol
 
-```bash
-# Melatih semua asset di kategori crypto
-python train_batch.py --category crypto
+**Frontend:** Komponen `SearchBar` di header/sidebar — autocomplete search dialog
 
-# Melatih beberapa asset yang ditentukan
-python train_batch.py --symbols "BBCA.JK,BRENTCrude,ETHUSDT" --timesteps 20000
+##### 3. Screener (`/screener`)
 
-# List semua kategori asset yang tersedia
-python train_batch.py --list-categories
-```
+- `GET /screener/run` — Filter aset berdasarkan indikator
 
-### Parameters:
+**Frontend:** `/dashboard/screener` — Tabel filter-able dengan parameter RSI, signal, bandar
 
-| Parameter             | Deskripsi                                                                             | Default |
-| --------------------- | ------------------------------------------------------------------------------------- | ------- |
-| --category, -c        | Category asset yang akan dilatih (required jika tidak menggunakan --symbols)          | None    |
-| --symbols, -s         | Daftar symbol asset dipisahkan oleh koma (required jika tidak menggunakan --category) | None    |
-| --timesteps, -t       | Total timesteps untuk training                                                        | 15000   |
-| --period, -p          | Periode data yang akan diambil (contoh: 1y, 6mo, 30d)                                 | 2y      |
-| --interval, -i        | Interval data (contoh: 5m, 15m, 1d)                                                   | 1h      |
-| --list-categories, -l | List semua kategori asset yang tersedia                                               | False   |
+##### 4. Alerts (`/alerts`)
 
-## 3. train_all.py (existing)
+- `POST /alerts/create` — Buat alert baru
+- `GET /alerts/list` — Daftar alert user
+- `DELETE /alerts/{alert_id}` — Hapus alert
 
-File untuk melatih semua asset di database secara paralel dengan batasan concurrency.
+**Frontend:** `/dashboard/alerts` — CRUD tabel alerts + form create
 
-### Usage:
+---
 
-```bash
-python train_all.py
-```
+#### **Grup 2: Analytics & Journal** (Performa trading)
 
-## Output
+##### 5. Journal (`/journal`)
 
-Hasil training akan disimpan di folder `models/[category]/` dengan format nama file:
+- `GET /journal/history` — Riwayat trading
+- `GET /journal/stats` — Statistik (Win Rate, Profit Factor, Drawdown, Equity Curve)
 
-```
-{symbol}_{date}_{timesteps}steps.zip
-```
+**Frontend:** `/dashboard/journal` — Tabel history + stats cards + equity curve Recharts
 
-Contoh: `BBCA.JK_2024-02-05_15000steps.zip`
+##### 6. Backtest (`/backtest`)
 
-## Fitur Umum
+- `GET /backtest/run?symbol=&period=&balance=` — Jalankan backtest
 
-1. **Auto-check model existence**: Skip training jika model dengan konfigurasi yang sama sudah ada
-2. **Data validation**: Memeriksa apakah data yang diambil cukup untuk training
-3. **Feature engineering**: Otomatis menambahkan indikator teknikal (RSI, MACD, dll.)
-4. **Logging**: Logging yang jelas dengan emoji untuk memudahkan pembacaan
-5. **Concurrency control**: Batasan jumlah training yang berjalan sekaligus untuk menghindari overload
+**Frontend:** `/dashboard/backtest` — Form input (symbol, period, balance) + hasil backtest chart
 
-## Catatan
+##### 7. Portfolio (`/portfolio`)
 
-- Pastikan database sudah di-seed sebelum menjalankan training
-- Jika database kosong, jalankan `seed.py` terlebih dahulu
-- Training membutuhkan waktu yang cukup sesuai dengan jumlah timesteps dan kompleksitas data
+- `POST /portfolio/execute-virtual` — Eksekusi order virtual
+
+**Frontend:** `/dashboard/portfolio` — Virtual portfolio view + order form
+
+---
+
+#### **Grup 3: AI & Chat** (Fitur AI)
+
+##### 8. Chat (`/chat`)
+
+- `POST /chat/ask` — RAG-powered AI chat
+
+**Frontend:** `/dashboard/chat` — Chat interface (bubble messages)
+
+##### 9. Analysis (`/analysis`)
+
+- `POST /analysis/upload-report` — Upload PDF laporan keuangan
+- `GET /analysis/latest/{symbol}` — Ambil analisis terakhir
+
+**Frontend:** `/dashboard/analysis` — Upload form + hasil analisis AI
+
+##### 10. Pipeline (`/pipeline`)
+
+- `POST /pipeline/optimize` — Trigger AI optimization
+- `GET /pipeline/status` — Cek status optimization
+
+**Frontend:** Tombol di admin area (bukan halaman terpisah)
+
+---
+
+#### **Grup 4: User Settings & Account**
+
+##### 11. User (`/user`)
+
+- `POST /user/connect-telegram` — Hubungkan Telegram
+- `POST/DELETE/GET /user/watchlist` — Kelola watchlist
+- `POST /user/settings/balance` — Set saldo trading
+- `GET /user/signal/check/{symbol}` — Cek sinyal personal
+- `POST /user/settings/telegram` — Simpan Telegram ID
+- `POST /user/generate-telegram-code` — Buat kode binding Telegram
+- `POST /user/user/api-key/regenerate` — Regenerate API key
+
+**Frontend:** `/dashboard/settings` — Tab settings (Profile, Telegram, Balance, API Key, Watchlist)
+
+##### 12. Subscription (`/subscription`)
+
+- `GET /subscription/plans` — Daftar paket berlangganan
+
+**Frontend:** `/dashboard/pricing` atau modal di settings
+
+---
+
+#### **Grup 5: Admin & Owner** (Akses terbatas)
+
+##### 13. Admin (`/admin`)
+
+- `GET /admin/users` — Lihat semua user
+- `POST /admin/user/request-upgrade` — Request upgrade
+- `GET /admin/admin/upgrade-queue` — Queue permintaan
+- `POST /admin/admin/execute-upgrade` — Proses upgrade
+- `POST /admin/approve-upgrade/{email}` — Approve user
+- `GET /admin/revenue-stats` — Statistik revenue
+
+**Frontend:** `/dashboard/admin` — Panel admin (tabel users, approve queue, revenue stats)
+
+##### 14. Owner (`/owner`)
+
+- `GET /owner/files/tree` — File explorer
+- `POST /owner/files/read` — Baca file
+- `POST /owner/files/save` — Simpan file
+- `GET /owner/logs/stream` — Live log viewer
+- `POST /owner/action/retrain` — Trigger retraining
+- `POST /owner/action/restart-bot` — Restart bot logic
+- `GET /owner/financial-health` — Financial metrics
+- `GET /owner/audit-logs` — Audit logs
+- dan lainnya...
+
+**Frontend:** `/dashboard/owner` — Super admin panel (file editor, logs, training control)
+
+##### 15. Simulation (`/simulation`)
+
+- `WS /simulation/replay/{symbol}` — WebSocket replay market data
+
+**Frontend:** `/dashboard/simulation` — Chart dengan replay control (play/pause/speed)
+
+---
+
+#### **Grup 6: Global Endpoints**
+
+##### Root & Health
+
+- `GET /` — System status
+- `GET /health` — Health check
+- `WS /ws/market/{symbol}` — Live market data
+
+**Frontend:** Status badge di sidebar/footer
+
+---
+
+## Proposed Changes
+
+### Fase 1 — Service Layer & Types (Foundation)
+
+#### [MODIFY] [api.ts](file:///f:/code/ai-hub/frontend/src/services/api.ts)
+
+Tambahkan semua fungsi API service untuk setiap endpoint.
+
+#### [MODIFY] [types/index.ts](file:///f:/code/ai-hub/frontend/src/types/index.ts)
+
+Tambahkan TypeScript interfaces untuk semua response types.
+
+---
+
+### Fase 2 — Updated Sidebar Navigation
+
+#### [MODIFY] [sidebar.tsx](file:///f:/code/ai-hub/frontend/src/components/sidebar.tsx)
+
+Tambahkan semua menu navigasi baru + role-based visibility (Admin/Owner menus).
+
+---
+
+### Fase 3 — Halaman-Halaman Baru
+
+#### [NEW] `/dashboard/market/page.tsx` — Market Data (Chart, Crypto, Forex, Bandar)
+
+#### [NEW] `/dashboard/screener/page.tsx` — Stock Screener
+
+#### [NEW] `/dashboard/alerts/page.tsx` — Alerts Management
+
+#### [NEW] `/dashboard/journal/page.tsx` — Trading Journal & Stats
+
+#### [NEW] `/dashboard/backtest/page.tsx` — Backtest Playground
+
+#### [NEW] `/dashboard/portfolio/page.tsx` — Virtual Portfolio
+
+#### [NEW] `/dashboard/chat/page.tsx` — AI Chat Assistant
+
+#### [NEW] `/dashboard/analysis/page.tsx` — Financial Report Analysis
+
+#### [NEW] `/dashboard/settings/page.tsx` — User Settings
+
+#### [NEW] `/dashboard/pricing/page.tsx` — Subscription Plans
+
+#### [NEW] `/dashboard/admin/page.tsx` — Admin Panel
+
+#### [NEW] `/dashboard/owner/page.tsx` — Owner Panel
+
+#### [NEW] `/dashboard/simulation/page.tsx` — Time Travel Simulation
+
+---
+
+## User Review Required
+
+> [!IMPORTANT]
+> **Ini adalah pekerjaan sangat besar (13 halaman baru + infrastructure updates).** Apakah Anda ingin saya implementasi **semua sekaligus** atau **bertahap per grup**?
+
+> [!WARNING]
+> **Beberapa endpoint seperti `/simulation/replay` menggunakan WebSocket.** Implementasi WebSocket di Next.js memerlukan custom hook dan penanganan lifecycle khusus.
+
+## Open Questions
+
+1. **Prioritas:** Apakah Anda ingin saya mulai dari **Grup 1 (Market & Trading Core)** dulu, atau langsung semua?
+2. **Chart Library:** Untuk `/market/chart/{symbol}` — ingin menggunakan **Recharts** (yang sudah ada) atau install **Lightweight Charts** (lebih cocok untuk candlestick trading)?
+3. **Admin/Owner pages:** Apakah perlu dibuat lengkap, atau cukup placeholder dulu?
+
+## Verification Plan
+
+### Automated Tests
+
+- `bun run build` harus berhasil tanpa error setelah setiap fase
+- Semua route harus terdaftar di build output
+
+### Manual Verification
+
+- Jalankan `bun run dev` + backend FastAPI untuk test integrasi aktual
