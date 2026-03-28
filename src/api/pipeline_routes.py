@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, BackgroundTasks, Depends
 
 from src.api.auth import get_current_user
@@ -9,8 +11,8 @@ router = APIRouter(prefix="/pipeline", tags=["AI Auto-Optimizer"])
 
 @router.post("/optimize")
 async def trigger_optimization(
-    symbol: str,
     background_tasks: BackgroundTasks,
+    symbol: Optional[str] = "BBCA.JK",
     user: dict = Depends(get_current_user),
 ):
     """
@@ -30,13 +32,14 @@ async def trigger_optimization(
 
 
 @router.get("/status")
-def get_optimization_status(symbol: str):
+def get_optimization_status(symbol: Optional[str] = None):
     # Di real app, Anda perlu menyimpan status 'task' ke database/memori
     # untuk dicek progressnya.
-    # Untuk sekarang kita return info statis.
     return {
-        "symbol": symbol,
+        "symbol": symbol or "all",
         "status": "idle",
         "progress": 0,
-        "message": "Processing logic not implemented (Need Task Queue like Celery/Redis)",
+        "message": "Pipeline idle. No active optimization task.",
+        "last_run": None,
+        "eta": None,
     }

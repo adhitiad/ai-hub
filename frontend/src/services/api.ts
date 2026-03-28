@@ -25,6 +25,8 @@ import type {
   SystemStatus,
   AnalysisResult,
   PipelineStatus,
+  SignalResponse,
+  SignalStats,
 } from "@/types";
 
 export const api = axios.create({
@@ -248,3 +250,31 @@ export const ownerService = {
   getAuditLogs: (limit = 100) =>
     api.get("/owner/audit-logs", { params: { limit } }),
 };
+
+// ========== Assets ==========
+export const assetsService = {
+  /** Ambil semua simbol dari database. Fallback ke config statis jika DB kosong. */
+  list: (category?: string) =>
+    api.get<{ count: number; assets: AssetFromDB[]; source?: string }>(
+      "/assets/list",
+      { params: category ? { category } : {} }
+    ),
+};
+
+// ========== Signals ==========
+export const signalService = {
+  list: (params: { status: "active" | "expired"; page: number; limit: number }) =>
+    api.get<SignalResponse>("/signals/", { params }),
+  getStats: () => api.get<SignalStats>("/signals/stats"),
+};
+
+/** Tipe satu aset dari DB (atau fallback config) */
+export interface AssetFromDB {
+  symbol: string;
+  category: string;
+  type: string;
+  pip_scale?: number;
+  lot_multiplier?: number;
+  /** Label ramah manusia (opsional, bisa di-generate di frontend) */
+  label?: string;
+}

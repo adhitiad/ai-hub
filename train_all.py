@@ -38,7 +38,7 @@ MAX_CONCURRENT_TRAINING = 3
 semaphore = asyncio.Semaphore(MAX_CONCURRENT_TRAINING)
 
 
-async def train_model(asset):
+async def train_model(asset, no_urut=0):
     """
     Melatih model untuk satu aset dengan Semaphore.
     """
@@ -46,6 +46,8 @@ async def train_model(asset):
         symbol = asset["symbol"]
         category = asset.get("category", "UNKNOWN")
         safe_symbol = symbol.replace("=", "").replace("^", "").replace("/", "")
+
+        # path model disusun berdasarkan kategori dan simbol
 
         path = os.path.join(
             "models",
@@ -58,7 +60,7 @@ async def train_model(asset):
             logger.info(f"⏭️  SKIPPING {symbol}: Model already exists.")
             return
 
-        logger.info(f"🔄 Fetching data for {symbol}...")
+        logger.info(f"🔄 [{no_urut}] Fetching data for {symbol}...")
 
         try:
             # 1. Fetch Data
@@ -132,7 +134,7 @@ async def run_mass_training():
 
     # 3. Jalankan Training secara Concurrency (Parallel)
     # Kita buat list tasks, semaphore akan mengatur antriannya
-    tasks = [train_model(asset) for asset in assets]
+    tasks = [train_model(asset, i + 1) for i, asset in enumerate(assets)]
 
     # Jalankan semua tasks
     await asyncio.gather(*tasks)

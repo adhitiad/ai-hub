@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { Sidebar } from "@/components/sidebar";
 import { ownerService } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -169,9 +168,7 @@ export default function OwnerPage() {
   if (user?.role !== "owner") return null;
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      <main className="flex-1 ml-64 p-6">
+    <div className="space-y-8 pb-12">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -364,7 +361,6 @@ export default function OwnerPage() {
             </Card>
           </TabsContent>
         </Tabs>
-      </main>
     </div>
   );
 }

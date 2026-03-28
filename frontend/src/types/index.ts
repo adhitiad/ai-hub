@@ -322,3 +322,34 @@ export interface SimulationTick {
   volume?: number;
   action?: "BUY" | "SELL" | "HOLD";
 }
+
+// ========== Signals ==========
+export interface TradingSignal {
+  id: string;
+  symbol: string;
+  action: string;
+  price: number;
+  tp: number;
+  sl: number;
+  lot_size: string;
+  status: string;
+  created_at: string;
+  Prob?: string;
+  AI_Analysis?: string;
+  [key: string]: unknown;
+}
+
+export interface SignalResponse {
+  status: string;
+  total: number;
+  page: number;
+  limit: number;
+  data: TradingSignal[];
+}
+
+export interface SignalStats {
+  win_rate: number;
+  total_signals: number;
+  wins: number;
+  losses: number;
+}

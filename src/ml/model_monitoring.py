@@ -1,7 +1,7 @@
 # src/ml/model_monitoring.py
 import warnings
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List
 
 import numpy as np
@@ -96,7 +96,7 @@ class ModelMonitor:
         """Track prediksi model"""
         self.prediction_history.append(
             {
-                "timestamp": datetime.utcnow(),
+                "timestamp": datetime.now(timezone.utc),
                 "action": prediction["action"],
                 "confidence": prediction["confidence"],
                 "features": prediction.get("features"),
@@ -107,7 +107,7 @@ class ModelMonitor:
         """Track performa actual trading"""
         self.performance_history.append(
             {
-                "timestamp": datetime.utcnow(),
+                "timestamp": datetime.now(timezone.utc),
                 "symbol": trade_result["symbol"],
                 "pnl": trade_result["pnl"],
                 "predicted_action": trade_result["predicted_action"],
@@ -117,7 +117,7 @@ class ModelMonitor:
 
     def get_performance_metrics(self, window_days: int = 30) -> Dict:
         """Get performance metrics untuk window tertentu"""
-        cutoff = datetime.utcnow() - timedelta(days=window_days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=window_days)
         recent_trades = [t for t in self.performance_history if t["timestamp"] > cutoff]
 
         if not recent_trades:

@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { Sidebar } from "@/components/sidebar";
 import { userService } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,23 +11,24 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import type { IconProp } from "@fortawesome/fontawesome-svg-core";
 import {
-  Settings,
-  User,
-  Key,
-  MessageSquare,
-  Wallet,
-  Eye,
-  Loader2,
-  Copy,
-  Check,
-  Plus,
-  X,
-  RefreshCw,
-  Send,
-  Shield,
-  Sparkles,
-} from "lucide-react";
+  faUser,
+  faKey,
+  faComments,
+  faWallet,
+  faEye,
+  faSpinner,
+  faCopy,
+  faCheck,
+  faPlus,
+  faXmark,
+  faArrowsRotate,
+  faPaperPlane,
+  faShieldHalved,
+  faStar,
+} from "@fortawesome/free-solid-svg-icons";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -162,9 +162,7 @@ export default function SettingsPage() {
   if (!isAuthenticated) return null;
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      <main className="flex-1 ml-64 p-6">
+    <div className="space-y-8 pb-12">
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-purple-400 bg-clip-text text-transparent">
@@ -178,19 +176,19 @@ export default function SettingsPage() {
         <Tabs defaultValue="profile" className="space-y-6">
           <TabsList className="glass-panel border border-white/10 p-1">
             <TabsTrigger value="profile" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary cursor-pointer">
-              <User className="w-4 h-4 mr-1.5" /> Profile
+              <FontAwesomeIcon icon={faUser as IconProp} className="w-4 h-4 mr-1.5" /> Profile
             </TabsTrigger>
             <TabsTrigger value="balance" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary cursor-pointer">
-              <Wallet className="w-4 h-4 mr-1.5" /> Balance
+              <FontAwesomeIcon icon={faWallet as IconProp} className="w-4 h-4 mr-1.5" /> Balance
             </TabsTrigger>
             <TabsTrigger value="telegram" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary cursor-pointer">
-              <MessageSquare className="w-4 h-4 mr-1.5" /> Telegram
+              <FontAwesomeIcon icon={faComments as IconProp} className="w-4 h-4 mr-1.5" /> Telegram
             </TabsTrigger>
             <TabsTrigger value="apikey" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary cursor-pointer">
-              <Key className="w-4 h-4 mr-1.5" /> API Key
+              <FontAwesomeIcon icon={faKey as IconProp} className="w-4 h-4 mr-1.5" /> API Key
             </TabsTrigger>
             <TabsTrigger value="watchlist" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary cursor-pointer">
-              <Eye className="w-4 h-4 mr-1.5" /> Watchlist
+              <FontAwesomeIcon icon={faEye as IconProp} className="w-4 h-4 mr-1.5" /> Watchlist
             </TabsTrigger>
           </TabsList>
 
@@ -199,7 +197,7 @@ export default function SettingsPage() {
             <Card className="glass-panel border-white/10">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-primary" /> Profile Info
+                  <FontAwesomeIcon icon={faShieldHalved as IconProp} className="w-5 h-5 text-primary" /> Profile Info
                 </CardTitle>
                 <CardDescription>Informasi akun anda</CardDescription>
               </CardHeader>
@@ -214,7 +212,7 @@ export default function SettingsPage() {
                     <p className="text-lg font-bold">{user?.email}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant="outline" className="border-primary/30 text-primary capitalize">
-                        <Sparkles className="w-3 h-3 mr-1" /> {user?.role || "free"}
+                        <FontAwesomeIcon icon={faStar as IconProp} className="w-3 h-3 mr-1" /> {user?.role || "free"}
                       </Badge>
                       <Badge variant="outline" className="border-trade-up/30 text-trade-up">
                         Active
@@ -231,7 +229,7 @@ export default function SettingsPage() {
             <Card className="glass-panel border-white/10">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Wallet className="w-5 h-5 text-chart-4" /> Trading Balance
+                  <FontAwesomeIcon icon={faWallet as IconProp} className="w-5 h-5 text-chart-4" /> Trading Balance
                 </CardTitle>
                 <CardDescription>Atur saldo virtual untuk simulasi trading</CardDescription>
               </CardHeader>
@@ -259,7 +257,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <Button onClick={saveBalance} disabled={balanceSaving} className="bg-primary/20 text-primary hover:bg-primary/30">
-                  {balanceSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  {balanceSaving ? <FontAwesomeIcon icon={faSpinner as IconProp} spin className="w-4 h-4 mr-2" /> : null}
                   Simpan Balance
                 </Button>
                 {balanceMsg && <p className="text-sm">{balanceMsg}</p>}
@@ -272,7 +270,7 @@ export default function SettingsPage() {
             <Card className="glass-panel border-white/10">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-blue-400" /> Telegram Integration
+                  <FontAwesomeIcon icon={faComments as IconProp} className="w-5 h-5 text-blue-400" /> Telegram Integration
                 </CardTitle>
                 <CardDescription>Hubungkan akun Telegram untuk notifikasi sinyal</CardDescription>
               </CardHeader>
@@ -288,7 +286,7 @@ export default function SettingsPage() {
                       className="bg-white/5 border-white/10 font-mono"
                     />
                     <Button onClick={saveTelegram} disabled={telegramSaving || !telegramId} className="bg-blue-600/20 text-blue-400 hover:bg-blue-600/30">
-                      {telegramSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      {telegramSaving ? <FontAwesomeIcon icon={faSpinner as IconProp} spin className="w-4 h-4" /> : <FontAwesomeIcon icon={faPaperPlane as IconProp} className="w-4 h-4" />}
                     </Button>
                   </div>
                 </div>
@@ -299,7 +297,7 @@ export default function SettingsPage() {
                   <Label>Generate Binding Code</Label>
                   <div className="flex gap-2 items-center">
                     <Button onClick={generateCode} disabled={codeLoading} variant="outline" className="border-white/10">
-                      {codeLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Key className="w-4 h-4 mr-2" />}
+                      {codeLoading ? <FontAwesomeIcon icon={faSpinner as IconProp} spin className="w-4 h-4 mr-2" /> : <FontAwesomeIcon icon={faKey as IconProp} className="w-4 h-4 mr-2" />}
                       Generate Code
                     </Button>
                     {telegramCode && (
@@ -319,7 +317,7 @@ export default function SettingsPage() {
             <Card className="glass-panel border-white/10">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Key className="w-5 h-5 text-chart-4" /> API Key
+                  <FontAwesomeIcon icon={faKey as IconProp} className="w-5 h-5 text-chart-4" /> API Key
                 </CardTitle>
                 <CardDescription>Kelola API key untuk akses layanan</CardDescription>
               </CardHeader>
@@ -329,14 +327,14 @@ export default function SettingsPage() {
                     {showKey ? apiKey : "••••••••••••••••••••••••••"}
                   </code>
                   <Button variant="ghost" size="icon" onClick={() => setShowKey(!showKey)} className="shrink-0">
-                    <Eye className="w-4 h-4" />
+                    <FontAwesomeIcon icon={faEye as IconProp} className="w-4 h-4" />
                   </Button>
                   <Button variant="ghost" size="icon" onClick={copyApiKey} className="shrink-0">
-                    {keyCopied ? <Check className="w-4 h-4 text-trade-up" /> : <Copy className="w-4 h-4" />}
+                    {keyCopied ? <FontAwesomeIcon icon={faCheck as IconProp} className="w-4 h-4 text-trade-up" /> : <FontAwesomeIcon icon={faCopy as IconProp} className="w-4 h-4" />}
                   </Button>
                 </div>
                 <Button onClick={regenerateKey} disabled={regenerating} variant="outline" className="border-trade-down/30 text-trade-down hover:bg-trade-down/10">
-                  {regenerating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                  {regenerating ? <FontAwesomeIcon icon={faSpinner as IconProp} spin className="w-4 h-4 mr-2" /> : <FontAwesomeIcon icon={faArrowsRotate as IconProp} className="w-4 h-4 mr-2" />}
                   Regenerate API Key
                 </Button>
                 {regenMsg && <p className="text-sm">{regenMsg}</p>}
@@ -349,7 +347,7 @@ export default function SettingsPage() {
             <Card className="glass-panel border-white/10">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Eye className="w-5 h-5 text-trade-up" /> Watchlist
+                  <FontAwesomeIcon icon={faEye as IconProp} className="w-5 h-5 text-trade-up" /> Watchlist
                 </CardTitle>
                 <CardDescription>Aset yang anda pantau</CardDescription>
               </CardHeader>
@@ -363,13 +361,13 @@ export default function SettingsPage() {
                     onKeyDown={(e) => e.key === "Enter" && addWatchlist()}
                   />
                   <Button onClick={addWatchlist} disabled={addingSymbol || !newSymbol.trim()} className="bg-trade-up/20 text-trade-up hover:bg-trade-up/30">
-                    {addingSymbol ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                    {addingSymbol ? <FontAwesomeIcon icon={faSpinner as IconProp} spin className="w-4 h-4" /> : <FontAwesomeIcon icon={faPlus as IconProp} className="w-4 h-4" />}
                   </Button>
                 </div>
 
                 {watchlistLoading ? (
                   <div className="py-8 text-center">
-                    <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto" />
+                    <FontAwesomeIcon icon={faSpinner as IconProp} spin className="w-6 h-6 text-primary mx-auto" />
                   </div>
                 ) : watchlist.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-6">Watchlist kosong.</p>
@@ -386,7 +384,7 @@ export default function SettingsPage() {
                           onClick={() => removeWatchlist(sym)}
                           className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                         >
-                          <X className="w-3 h-3 text-trade-down" />
+                          <FontAwesomeIcon icon={faXmark as IconProp} className="w-3 h-3 text-trade-down" />
                         </button>
                       </Badge>
                     ))}
@@ -396,7 +394,6 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
         </Tabs>
-      </main>
     </div>
   );
 }

@@ -77,35 +77,39 @@ async def check_correlation_risk(new_symbol):
     """
     Cek apakah kita sudah punya posisi di aset yang 'mirip' (satu grup).
     """
-    # Cari posisi yang sedang OPEN
+    from src.core.config_assets import get_asset_info
+
+    # 1. Dapatkan kategori untuk simbol baru
+    info = get_asset_info(new_symbol)
+    category = info.get("category", "UNKNOWN")
+
+    if category == "UNKNOWN":
+        return True, "OK"
+
+    # 2. Ambil posisi yang sedang OPEN
     cursor = signals_collection.find({"status": "OPEN"})
     active_positions = await cursor.to_list(length=100)
 
-    active_symbols = [p["symbol"] for p in active_positions]
+    if not active_positions:
+        return True, "OK"
 
-    # Cek Grup
-    # Fetch all assets to determine groups
-    all_assets_cursor = assets_collection.find({})
-    all_assets = await all_assets_cursor.to_list(length=None)  # Fetch all assets
+    # 3. Hitung exposure di kategori yang sama
+    exposure_count = 0
+    for pos in active_positions:
+        pos_info = get_asset_info(pos["symbol"])
+        if pos_info.get("category") == category:
+            exposure_count += 1
 
-    # Group assets by category
-    categories = {}
-    for asset in all_assets:
-        category = asset.get("category", "UNKNOWN")
-        categories.setdefault(category, []).append(asset["symbol"])
+    # 4. Tentukan Batas Exposure (Limit)
+    # FOREX biasanya memiliki banyak pair, jadi kita toleransi lebih tinggi (5) dibanding Sektor Saham (2-3)
+    limit = 5 if category == "FOREX" else 2
 
-    for group_name, members in categories.items():
-        if (
-            new_symbol in members and group_name != "UNKNOWN"
-        ):  # Only check for known categories
-            exposure_count = sum(
-                1 for s in active_symbols if s in members
-            )  # Count active positions in this group
-            if exposure_count >= 2:  # Limit Max 2 positions per sector/group
-                logger.warning(
-                    f"Correlation Risk: Too much exposure in {group_name} for {new_symbol}"
-                )
-                return False, f"Risk: Too much exposure in {group_name}"
+    if exposure_count >= limit:
+        logger.warning(
+            f"Correlation Risk: Too much exposure in {category} ({exposure_count}/{limit}) for {new_symbol}"
+        )
+        return False, f"Risk: Too much exposure in {category} (Limit {limit})"
+
     return True, "OK"
 
 

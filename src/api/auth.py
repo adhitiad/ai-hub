@@ -35,7 +35,7 @@ async def get_current_user(api_key: str = Security(api_key_header)):
         update_fields = {"requests_today": 1, "last_request_date": today}
     else:
         # Cek Limit
-        limit = user.get("daily_requests_limit", 50)
+        limit = max(user.get("daily_requests_limit", 75), 200)
         # Owner & Admin bypass limit
         if (
             user.get("role") not in ["owner", "admin"]

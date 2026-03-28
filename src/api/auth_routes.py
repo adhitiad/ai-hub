@@ -40,7 +40,7 @@ async def register_user(data: RegisterModel):
             "api_key": new_api_key,  # Simpan plain untuk backward compatibility (idealnya di-hash)
             "role": "free",
             "subscription_status": "active",
-            "daily_requests_limit": 50,
+            "daily_requests_limit": 75,
             "requests_today": 0,
             "last_request_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             "watchlist": [],
@@ -58,7 +58,7 @@ async def register_user(data: RegisterModel):
         raise
     except Exception as e:
         logger.error("Error registering user: %s", e)
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from e
 
 
 @router.post("/login", dependencies=[Depends(RateLimiter(times=5, seconds=60))])

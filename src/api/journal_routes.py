@@ -137,18 +137,18 @@ async def get_trading_stats(user: dict = Depends(get_current_user)):
     worst_trade = df["pnl_currency"].min() if len(df) else 0
 
     return {
-        "total_trades": total_trades,
-        "win_rate": round(win_rate, 1),
-        "total_pnl": total_pnl,
+        "total_trades": int(total_trades),
+        "win_rate": round(float(win_rate), 1),
+        "total_pnl": float(total_pnl),
         "total_pnl_percent": 0,
-        "avg_win": float(avg_win) if not pd.isna(avg_win) else 0,
-        "avg_loss": float(avg_loss) if not pd.isna(avg_loss) else 0,
-        "profit_factor": profit_factor,
-        "max_drawdown": float(max_drawdown) if not pd.isna(max_drawdown) else 0,
-        "best_trade": float(best_trade) if not pd.isna(best_trade) else 0,
-        "worst_trade": float(worst_trade) if not pd.isna(worst_trade) else 0,
-        "equity_curve": df["cumulative_pnl"].tolist(),
+        "avg_win": float(avg_win) if bool(pd.notna(avg_win)) else 0,
+        "avg_loss": float(avg_loss) if bool(pd.notna(avg_loss)) else 0,
+        "profit_factor": float(profit_factor),
+        "max_drawdown": float(max_drawdown) if bool(pd.notna(max_drawdown)) else 0,
+        "best_trade": float(best_trade) if bool(pd.notna(best_trade)) else 0,
+        "worst_trade": float(worst_trade) if bool(pd.notna(worst_trade)) else 0,
+        "equity_curve": [float(x) for x in df["cumulative_pnl"].tolist()],
         # Legacy fields
         "avg_risk_reward": f"1:{risk_reward}",
-        "net_pnl": total_pnl,
+        "net_pnl": float(total_pnl),
     }

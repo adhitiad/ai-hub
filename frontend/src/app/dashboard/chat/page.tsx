@@ -1,34 +1,33 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/stores/useAuthStore";
-import { Sidebar } from "@/components/sidebar";
-import { chatService } from "@/services/api";
-import type { ChatMessage } from "@/types";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
-  TooltipTrigger,
   TooltipProvider,
+  TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useSymbols } from "@/hooks/useSymbols";
+import { chatService } from "@/services/api";
+import { useAuthStore } from "@/stores/useAuthStore";
+import type { ChatMessage } from "@/types";
 import {
+  Bot,
+  Check,
+  Copy,
+  Loader2,
   MessageCircle,
   Send,
-  Loader2,
-  Bot,
-  User,
   Sparkles,
   Trash2,
-  Copy,
-  Check,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 export default function ChatPage() {
   const router = useRouter();
@@ -36,6 +35,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [symbol, setSymbol] = useState("");
+  const { grouped: symbolGroups, loading: symbolsLoading } = useSymbols();
   const [sending, setSending] = useState(false);
   const [copied, setCopied] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -100,9 +100,7 @@ export default function ChatPage() {
   if (!isAuthenticated) return null;
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      <main className="flex-1 ml-64 flex flex-col h-screen">
+    <div className="flex flex-col h-[calc(100vh-2rem)]">
         {/* Header */}
         <div className="px-6 py-4 border-b border-white/10 glass-panel flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -119,13 +117,22 @@ export default function ChatPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <input
-              type="text"
-              placeholder="Context symbol (opsional)"
+            <select
               value={symbol}
-              onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs w-36 outline-none focus:border-primary/40"
-            />
+              onChange={(e) => setSymbol(e.target.value)}
+              className="px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs w-44 outline-none focus:border-primary/40 cursor-pointer appearance-none"
+            >
+              <option value="">— Tanpa konteks simbol —</option>
+              {!symbolsLoading && symbolGroups.map((group) => (
+                <optgroup key={group.group} label={group.group}>
+                  {group.options.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.flag} {opt.value}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -215,12 +222,12 @@ export default function ChatPage() {
                         {msg.timestamp?.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
                       </span>
                       {msg.role === "assistant" && (
-                        <button
+                        <Button
                           onClick={() => copyText(msg.content, i)}
                           className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                         >
                           {copied === i ? <Check className="w-3 h-3 text-trade-up" /> : <Copy className="w-3 h-3" />}
-                        </button>
+                        </Button>
                       )}
                     </div>
                   </CardContent>
@@ -287,7 +294,6 @@ export default function ChatPage() {
             </Button>
           </div>
         </div>
-      </main>
     </div>
   );
 }

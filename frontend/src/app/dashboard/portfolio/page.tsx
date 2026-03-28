@@ -3,19 +3,47 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { Sidebar } from "@/components/sidebar";
 import { portfolioService, dashboardService } from "@/services/api";
 import type { OpenTrade } from "@/types";
+import { cn } from "@/lib/utils";
+
+// shadcn/ui
 import {
-  Wallet,
-  ArrowUpCircle,
-  ArrowDownCircle,
-  Loader2,
-  Send,
-  TrendingUp,
-  TrendingDown,
-  RefreshCw,
-} from "lucide-react";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+
+// FontAwesome
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import type { IconProp } from "@fortawesome/fontawesome-svg-core";
+import {
+  faWallet,
+  faArrowUp,
+  faArrowDown,
+  faCircleNotch,
+  faPaperPlane,
+  faChartLine,
+  faRotate,
+  faBoxOpen,
+  faMoneyBillTrendUp,
+  faBuildingColumns,
+  faHistory,
+} from "@fortawesome/free-solid-svg-icons";
 
 export default function PortfolioPage() {
   const router = useRouter();
@@ -67,13 +95,13 @@ export default function PortfolioPage() {
         Number(orderQty),
         Number(orderPrice)
       );
-      setOrderResult(`✅ ${orderAction} ${orderQty} lot ${orderSymbol.toUpperCase()} @ ${Number(orderPrice).toLocaleString()}`);
+      setOrderResult(`✅ Success: ${orderAction} ${orderQty} lot ${orderSymbol.toUpperCase()} at ${Number(orderPrice).toLocaleString()}`);
       setOrderSymbol("");
       setOrderQty("");
       setOrderPrice("");
       fetchTrades();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Gagal eksekusi order";
+      const msg = err instanceof Error ? err.message : "Order execution failed";
       setOrderError(msg);
     } finally {
       setSubmitting(false);
@@ -85,193 +113,251 @@ export default function PortfolioPage() {
   if (!isAuthenticated) return null;
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      <main className="flex-1 ml-64 p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-purple-400 bg-clip-text text-transparent">
-              Virtual Portfolio
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              💼 Trading simulator — <span className="text-chart-5">ポートフォリオ</span>
-            </p>
-          </div>
-          <button
-            onClick={fetchTrades}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg glass-panel text-sm text-muted-foreground hover:text-foreground transition-all cursor-pointer"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refresh
-          </button>
+    <div className="space-y-8 pb-12">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black bg-gradient-to-r from-emerald-400 to-purple-400 bg-clip-text text-transparent uppercase tracking-tight">
+             Virtual Portfolio
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+            💼 Virtual trading simulator — <span className="text-chart-5 font-black uppercase tracking-widest text-[10px]">Active Session</span>
+          </p>
         </div>
+        
+        <Button 
+          variant="outline" 
+          onClick={fetchTrades} 
+          disabled={loading}
+          className="glass-panel border-white/10 font-black text-[10px] tracking-widest uppercase h-9 gap-2"
+        >
+          <FontAwesomeIcon icon={faRotate as IconProp} className={cn("w-3 h-3", loading && "animate-spin")} />
+          Sync Data
+        </Button>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Left Column: Form & Summary */}
+        <div className="lg:col-span-4 space-y-6">
           {/* Order Form */}
-          <div className="lg:col-span-1 space-y-4">
-            <div className="glass-panel rounded-xl p-6">
-              <h2 className="text-sm font-medium text-muted-foreground mb-4">📝 New Order</h2>
-
-              {/* Buy/Sell Toggle */}
-              <div className="flex gap-2 mb-4">
-                <button
+          <Card className="glass-panel border-white/10 overflow-hidden">
+            <CardHeader className="bg-white/5 border-b border-white/10 pb-4 px-6">
+               <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                  <FontAwesomeIcon icon={faMoneyBillTrendUp as IconProp} className="w-3.5 h-3.5" />
+                  NEW VIRTUAL ORDER
+               </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              {/* Buy/Sell Tabs */}
+              <div className="grid grid-cols-2 gap-2 p-1 bg-white/5 border border-white/10 rounded-xl">
+                <Button
                   onClick={() => setOrderAction("BUY")}
-                  className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                    orderAction === "BUY"
-                      ? "bg-trade-up/20 text-trade-up border border-trade-up/30"
-                      : "bg-white/5 text-muted-foreground border border-white/10"
-                  }`}
+                  variant="ghost"
+                  className={cn(
+                    "h-10 font-black text-xs tracking-widest rounded-lg transition-all",
+                    orderAction === "BUY" 
+                      ? "bg-trade-up/10 text-trade-up border border-trade-up/20 shadow-lg shadow-trade-up/5" 
+                      : "text-muted-foreground hover:bg-white/5"
+                  )}
                 >
-                  <ArrowUpCircle className="w-4 h-4" /> BUY
-                </button>
-                <button
+                  <FontAwesomeIcon icon={faArrowUp as IconProp} className="mr-2 text-[10px]" />
+                  BUY
+                </Button>
+                <Button
                   onClick={() => setOrderAction("SELL")}
-                  className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                    orderAction === "SELL"
-                      ? "bg-trade-down/20 text-trade-down border border-trade-down/30"
-                      : "bg-white/5 text-muted-foreground border border-white/10"
-                  }`}
+                  variant="ghost"
+                  className={cn(
+                    "h-10 font-black text-xs tracking-widest rounded-lg transition-all",
+                    orderAction === "SELL" 
+                      ? "bg-trade-down/10 text-trade-down border border-trade-down/20 shadow-lg shadow-trade-down/5" 
+                      : "text-muted-foreground hover:bg-white/5"
+                  )}
                 >
-                  <ArrowDownCircle className="w-4 h-4" /> SELL
-                </button>
+                  <FontAwesomeIcon icon={faArrowDown as IconProp} className="mr-2 text-[10px]" />
+                  SELL
+                </Button>
               </div>
 
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Symbol</label>
-                  <input
-                    type="text"
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Asset Symbol</Label>
+                  <Input
                     value={orderSymbol}
                     onChange={(e) => setOrderSymbol(e.target.value)}
-                    placeholder="BBCA.JK"
-                    className="w-full px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-sm outline-none focus:border-primary/40"
+                    placeholder="e.g. BBCA.JK"
+                    className="bg-white/5 border-white/10 focus-visible:ring-primary/20 h-11 font-bold uppercase placeholder:lowercase placeholder:font-normal"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Qty (lot)</label>
-                    <input
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Lot Size</Label>
+                    <Input
                       type="number"
                       value={orderQty}
                       onChange={(e) => setOrderQty(e.target.value)}
-                      placeholder="1"
-                      className="w-full px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-sm font-mono outline-none focus:border-primary/40"
+                      placeholder="qty"
+                      className="bg-white/5 border-white/10 focus-visible:ring-primary/20 h-11 font-mono font-bold"
                     />
                   </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Harga</label>
-                    <input
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Price (IDR)</Label>
+                    <Input
                       type="number"
                       value={orderPrice}
                       onChange={(e) => setOrderPrice(e.target.value)}
-                      placeholder="9000"
-                      className="w-full px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-sm font-mono outline-none focus:border-primary/40"
+                      placeholder="price"
+                      className="bg-white/5 border-white/10 focus-visible:ring-primary/20 h-11 font-mono font-bold"
                     />
                   </div>
                 </div>
               </div>
 
-              <button
+              <Button
                 onClick={executeOrder}
                 disabled={submitting || !orderSymbol || !orderQty || !orderPrice}
-                className={`w-full mt-4 py-3 rounded-lg font-bold text-sm transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 ${
-                  orderAction === "BUY"
-                    ? "bg-trade-up/20 text-trade-up hover:bg-trade-up/30"
-                    : "bg-trade-down/20 text-trade-down hover:bg-trade-down/30"
-                }`}
+                className={cn(
+                  "w-full h-12 font-black tracking-[0.2em] shadow-lg transition-all",
+                  orderAction === "BUY" 
+                    ? "bg-trade-up/10 text-trade-up border border-trade-up/20 hover:bg-trade-up/20 shadow-trade-up/5" 
+                    : "bg-trade-down/10 text-trade-down border border-trade-down/20 hover:bg-trade-down/20 shadow-trade-down/5"
+                )}
               >
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                Execute {orderAction}
-              </button>
+                {submitting ? (
+                  <FontAwesomeIcon icon={faCircleNotch as IconProp} spin className="w-4 h-4" />
+                ) : (
+                  <>
+                    <FontAwesomeIcon icon={faPaperPlane as IconProp} className="mr-2 w-3.5 h-3.5" />
+                    EXECUTE {orderAction}
+                  </>
+                )}
+              </Button>
 
               {orderResult && (
-                <div className="mt-3 px-3 py-2 rounded-lg bg-trade-up/10 text-trade-up text-xs">{orderResult}</div>
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-[11px] font-bold text-emerald-400 animate-in zoom-in-95 duration-200">
+                   {orderResult}
+                </div>
               )}
               {orderError && (
-                <div className="mt-3 px-3 py-2 rounded-lg bg-trade-down/10 text-trade-down text-xs">{orderError}</div>
-              )}
-            </div>
-
-            {/* Portfolio Summary */}
-            <div className="glass-panel rounded-xl p-6">
-              <h2 className="text-sm font-medium text-muted-foreground mb-3">Summary</h2>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Open Positions</span>
-                  <span className="text-sm font-bold">{trades.length}</span>
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-[11px] font-bold text-red-400 animate-in zoom-in-95 duration-200">
+                   {orderError}
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Unrealized P&L</span>
-                  <span className={`text-sm font-bold ${totalPnl >= 0 ? "text-trade-up" : "text-trade-down"}`}>
-                    {totalPnl >= 0 ? "+" : ""}{totalPnl.toLocaleString()}
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Account Summary */}
+          <Card className="glass-panel border-white/10 overflow-hidden">
+            <CardHeader className="bg-white/5 border-b border-white/10 py-3 px-6">
+              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Portfolio Snapshot</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+               <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground flex items-center gap-2">
+                     <FontAwesomeIcon icon={faBoxOpen as IconProp} className="w-3 h-3 opacity-30" />
+                     Open Positions
                   </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Open Trades Table */}
-          <div className="lg:col-span-2">
-            <div className="glass-panel rounded-xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
-                <Wallet className="w-4 h-4 text-primary" />
-                <h3 className="text-sm font-medium">Open Positions</h3>
-              </div>
-
-              {loading ? (
-                <div className="flex items-center justify-center py-16">
-                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                </div>
-              ) : trades.length === 0 ? (
-                <div className="p-12 text-center">
-                  <Wallet className="w-10 h-10 mx-auto text-muted-foreground opacity-30 mb-3" />
-                  <p className="text-muted-foreground text-sm">Belum ada posisi terbuka.</p>
-                </div>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-white/10 text-muted-foreground">
-                      <th className="text-left px-4 py-3 font-medium">Symbol</th>
-                      <th className="text-left px-4 py-3 font-medium">Side</th>
-                      <th className="text-right px-4 py-3 font-medium">Entry</th>
-                      <th className="text-right px-4 py-3 font-medium">Current</th>
-                      <th className="text-right px-4 py-3 font-medium">P&L</th>
-                      <th className="text-left px-4 py-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {trades.map((t, i) => {
-                      const pnl = t.pnl ?? 0;
-                      return (
-                        <tr key={t.id || i} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                          <td className="px-4 py-3 font-medium">{t.symbol}</td>
-                          <td className="px-4 py-3">
-                            <span className={`flex items-center gap-1 text-xs font-bold ${
-                              t.action === "BUY" ? "text-trade-up" : "text-trade-down"
-                            }`}>
-                              {t.action === "BUY" ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                              {t.action}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right font-mono">{t.entry_price?.toLocaleString() ?? "—"}</td>
-                          <td className="px-4 py-3 text-right font-mono">{t.current_price?.toLocaleString() ?? "—"}</td>
-                          <td className={`px-4 py-3 text-right font-mono font-bold ${pnl >= 0 ? "text-trade-up" : "text-trade-down"}`}>
-                            {pnl >= 0 ? "+" : ""}{pnl.toLocaleString()}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-trade-up/15 text-trade-up">{t.status}</span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
+                  <span className="font-mono font-black">{trades.length}</span>
+               </div>
+               <div className="h-px bg-white/5 w-full" />
+               <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground flex items-center gap-2">
+                     <FontAwesomeIcon icon={faChartLine as IconProp} className="w-3 h-3 opacity-30" />
+                     Unrealized P&L
+                  </span>
+                  <span className={cn("font-mono font-black text-sm", totalPnl >= 0 ? "text-trade-up" : "text-trade-down")}>
+                     {totalPnl >= 0 ? "+" : ""}{totalPnl.toLocaleString()}
+                  </span>
+               </div>
+            </CardContent>
+          </Card>
         </div>
-      </main>
+
+        {/* Right Column: Active Positions */}
+        <div className="lg:col-span-8">
+           <Card className="glass-panel border-white/10 flex flex-col h-full min-h-[600px]">
+              <CardHeader className="bg-white/5 border-b border-white/10 py-4 px-6 flex flex-row items-center justify-between">
+                 <div className="flex items-center gap-3">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                    <CardTitle className="text-sm font-black uppercase tracking-widest">Active Positions</CardTitle>
+                 </div>
+                 <Badge variant="outline" className="border-white/10 text-[9px] font-black tracking-widest text-muted-foreground">
+                    REALTIME TRACKING
+                 </Badge>
+              </CardHeader>
+              <CardContent className="p-0 flex-1 overflow-hidden relative">
+                {loading ? (
+                   <div className="absolute inset-0 flex items-center justify-center bg-black/10 backdrop-blur-[2px] z-10 animate-in fade-in">
+                      <FontAwesomeIcon icon={faCircleNotch as IconProp} spin className="w-10 h-10 text-primary opacity-40" />
+                   </div>
+                ) : trades.length === 0 ? (
+                   <div className="h-full flex flex-col items-center justify-center py-32 opacity-30 px-12 text-center">
+                      <FontAwesomeIcon icon={faWallet as IconProp} className="w-16 h-16 mb-6" />
+                      <p className="font-black uppercase tracking-widest text-xs">No active exposures detected</p>
+                      <p className="text-[10px] mt-1 font-medium italic">Simulate market orders on the left panel to build your index.</p>
+                   </div>
+                ) : (
+                   <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader className="bg-white/5 border-b border-white/5">
+                          <TableRow className="border-white/10 hover:bg-transparent">
+                            <TableHead className="font-black text-[10px] uppercase tracking-widest h-11 px-6">ASSET</TableHead>
+                            <TableHead className="font-black text-[10px] uppercase tracking-widest h-11">SIDE</TableHead>
+                            <TableHead className="font-black text-[10px] uppercase tracking-widest h-11 text-right">ENTRY</TableHead>
+                            <TableHead className="font-black text-[10px] uppercase tracking-widest h-11 text-right">MARK</TableHead>
+                            <TableHead className="font-black text-[10px] uppercase tracking-widest h-11 text-right px-6">P&L (NET)</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {trades.map((t, i) => {
+                            const pnl = t.pnl ?? 0;
+                            return (
+                              <TableRow key={t.id || i} className="border-white/5 hover:bg-white/5 group h-14">
+                                <TableCell className="px-6">
+                                   <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center pointer-events-none border border-white/5">
+                                         <FontAwesomeIcon icon={faBuildingColumns as IconProp} className="text-[10px] opacity-20" />
+                                      </div>
+                                      <div className="flex flex-col">
+                                         <span className="font-black text-sm tracking-tight">{t.symbol}</span>
+                                         <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground opacity-50">VIRTUAL</span>
+                                      </div>
+                                   </div>
+                                </TableCell>
+                                <TableCell>
+                                   <Badge className={cn(
+                                      "font-black text-[9px] px-2 py-0.5 border-none shadow-sm",
+                                      t.action === "BUY" ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
+                                   )}>
+                                      {t.action}
+                                   </Badge>
+                                </TableCell>
+                                <TableCell className="text-right font-mono text-[11px] font-bold opacity-60">
+                                   {t.entry_price?.toLocaleString() ?? "—"}
+                                </TableCell>
+                                <TableCell className="text-right font-mono text-[11px] font-bold">
+                                   {t.current_price?.toLocaleString() ?? "—"}
+                                </TableCell>
+                                <TableCell className="text-right px-6">
+                                   <div className="flex flex-col items-end">
+                                      <span className={cn("font-mono font-black text-sm", pnl >= 0 ? "text-trade-up" : "text-trade-down")}>
+                                         {pnl >= 0 ? "+" : ""}{pnl.toLocaleString()}
+                                      </span>
+                                      <span className="text-[9px] font-black opacity-20 uppercase">POSITION ID: {t.id?.slice(-6) || "SIM"}</span>
+                                   </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                   </div>
+                )}
+              </CardContent>
+           </Card>
+        </div>
+      </div>
     </div>
   );
 }

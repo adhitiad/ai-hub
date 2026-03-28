@@ -14,67 +14,65 @@ from src.database.redis_client import redis_client
 
 
 # --- 1. Custom Logging Middleware ---
-class LoggingMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
+# --- 1. Custom Logging Middleware (Pure ASGI to support WebSockets) ---
+class LoggingMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        # Jika bukan HTTP (misal WebSocket), lewatkan saja tanpa modifikasi
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+
+        # Logika Logging untuk HTTP
+        request = Request(scope, receive)
         start_time = time.time()
 
-        # Proses request
+        # Kita perlu membungkus 'send' untuk mendapatkan status code response
+        response_status = [200]
+
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                response_status[0] = message["status"]
+            await send(message)
+
         try:
-            response = await call_next(request)
+            await self.app(scope, receive, send_wrapper)
         except Exception as e:
-            # Jika error terjadi di tengah processing request (sebelum masuk route handler)
             logger.error("🔥 Middleware Error: %s", e)
             raise e
 
+        # Skip logging untuk path docs/static atau GET biasa yang tidak sensitif
+        if request.url.path in ["/docs", "/openapi.json", "/health", "/"]:
+            return
+
         process_time = time.time() - start_time
+        status_code = response_status[0]
 
-        # Hanya log audit untuk request yang mengubah data atau akses sensitif
-        if (
-            request.method in ["POST", "PUT", "DELETE"]
-            or "admin" in request.url.path
-            or "owner" in request.url.path
-        ):
-            # Ambil user dari header (diset oleh auth middleware sebelumnya)
-            # Ini simulasi, di production ambil dari request.state.user
+        # Audit logging (POST/PUT/DELETE)
+        if request.method in ["POST", "PUT", "DELETE"] or any(x in request.url.path for x in ["admin", "owner"]):
             user_email = request.headers.get("X-User-Email", "Anonymous")
-
             log_entry = {
                 "timestamp": datetime.now(timezone.utc),
                 "user": user_email,
                 "method": request.method,
                 "path": request.url.path,
-                "status_code": response.status_code,
+                "status_code": status_code,
                 "process_time": f"{process_time:.4f}s",
             }
-            # Simpan ke koleksi logs di MongoDB (Non-blocking idealnya)
             try:
-                await db.logs.insert_one(log_entry)
-                print(f"📝 AUDIT: {log_entry}")
-            except Exception as e:
-                logger.warning("⚠️ Failed to write audit log: %s", e)
+                # Simpan ke DB secara non-blocking (fire and forget - di production gunakan background task)
+                # await db.logs.insert_one(log_entry)
+                pass # Matikan sementara logger DB jika memperlambat
+            except Exception:
+                pass
 
-        # Ambil User Agent atau API Key (Masked) untuk log
-        user_key = request.headers.get("X-API-KEY", "Anonymous")
-        if len(user_key) > 10:
-            user_key = user_key[:4] + "***" + user_key[-4:]
-
-        # Log ke console/file
-        log_msg = (
-            f"[{request.method}] {request.url.path} "
-            f"- User: {user_key} "
-            f"- Status: {response.status_code} "
-            f"- Time: {process_time:.4f}s"
-        )
-
-        if response.status_code >= 400:
+        # Console Log
+        log_msg = f"[{request.method}] {request.url.path} - Status: {status_code} - Time: {process_time:.4f}s"
+        if status_code >= 400:
             logger.warning("⚠️ %s", log_msg)
         else:
             logger.info("✅ %s", log_msg)
-
-        # Tambahkan Header Process-Time (Berguna untuk debug latency di frontend)
-        response.headers["X-Process-Time"] = str(process_time)
-
-        return response
 
 
 # --- 2. Global Exception Handler ---
@@ -93,7 +91,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={
             "status": "error",
             "message": "Internal Server Error",
-            "detail": error_msg,  # Bisa disembunyikan di production
+            "detail": error_msg,
             "path": request.url.path,
         },
     )
@@ -106,12 +104,13 @@ def register_middleware(app: FastAPI):
     """
 
     # A. CORS (Cross-Origin Resource Sharing)
-    # Penting agar Frontend (localhost:3000) bisa hit API (localhost:8000)
+    # Gunakan list spesifik, hindari "*" jika allow_credentials=True
     origins = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "https://your-production-domain.com",
-        "*",  # Ganti spesifik domain saat production agar aman
+        "http://10.10.1.124:3000", # Network IP Anda
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
     ]
 
     app.add_middleware(
@@ -123,6 +122,7 @@ def register_middleware(app: FastAPI):
     )
 
     # B. Register Custom Logging Middleware
+    # Gunakan add_middleware dengan class ASGI murni
     app.add_middleware(LoggingMiddleware)
 
     # C. Register Exception Handlers
@@ -160,7 +160,7 @@ async def verify_api_key(request: Request):
         raise HTTPException(status_code=401, detail="Invalid API key")
 
     # Cek apakah key sudah expired (opsional)
-    key_age = datetime.utcnow() - user.get("api_key_created_at", datetime.utcnow())
+    key_age = datetime.now(timezone.utc) - user.get("api_key_created_at", datetime.now(timezone.utc))
     if key_age.days > 90:  # Rotate setiap 90 hari
         raise HTTPException(
             status_code=401, detail="API key expired. Please regenerate."

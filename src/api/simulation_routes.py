@@ -9,7 +9,7 @@ from src.database.database import db
 router = APIRouter(prefix="/simulation", tags=["Time Travel"])
 
 
-@router.websocket("/replay/{symbol}")
+@router.websocket("/replay/{symbol:path}")
 async def replay_market_data(websocket: WebSocket, symbol: str, date: str):
     """
     WebSocket endpoint.

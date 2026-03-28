@@ -20,9 +20,10 @@ class WindowsRotatingFileHandler(RotatingFileHandler):
         """
         try:
             # Coba metode default terlebih dahulu
-            super().rotate(source, dest)
-        except PermissionError:
-            # Metode fallback jika terjadi locking file di Windows
+            if os.path.exists(source):
+                super().rotate(source, dest)
+        except (PermissionError, OSError):
+            # OSError menangkap WinError 32: File being used by another process
             self._windows_safe_rotate(source, dest)
 
     def _windows_safe_rotate(self, source, dest):
@@ -33,21 +34,39 @@ class WindowsRotatingFileHandler(RotatingFileHandler):
             # Tutup handler sementara untuk melepaskan lock
             if self.stream:
                 self.stream.close()
+                self.stream = None
+
+            # Jika file tujuan ada, coba hapus dulu
+            if os.path.exists(dest):
+                try:
+                    os.remove(dest)
+                except Exception:
+                    pass
 
             # Coba rename file lagi
-            if os.path.exists(dest):
-                os.remove(dest)
-            os.rename(source, dest)
+            if os.path.exists(source):
+                try:
+                    os.rename(source, dest)
+                except Exception:
+                    # Jika rename gagal (masih lock), coba copy + truncate
+                    # Ini adalah metode 'last resort'
+                    try:
+                        import shutil
+                        shutil.copy2(source, dest)
+                        with open(source, 'w', encoding=self.encoding) as f:
+                            f.truncate()
+                    except Exception:
+                        pass
 
             # Buka kembali file log baru
             self.stream = self._open()
-        except Exception as e:
-            print(f"Failed to rotate log file: {e}", file=sys.stderr)
-            # Jika gagal, coba buka file log kembali tanpa rotasi
+        except Exception:
+            # Jika semua gagal, coba buka kembali stream agar logging tetap jalan
             try:
-                self.stream = self._open()
-            except Exception as open_error:
-                print(f"Failed to reopen log file: {open_error}", file=sys.stderr)
+                if not self.stream:
+                    self.stream = self._open()
+            except Exception:
+                pass
 
 
 def setup_logger(name="AI_TRADING_BACKEND"):

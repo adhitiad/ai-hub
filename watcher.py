@@ -1,5 +1,5 @@
 import asyncio  # Pastikan ada
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pandas as pd
 import pytz
@@ -16,15 +16,43 @@ COMMISSION_PCT = 0.1  # Komisi Saham (0.1% per transaksi)
 COMMISSION_FX = 7.0  # Komisi Forex ($7 per lot round turn)
 
 
+# Global Exchange Cache untuk efisiensi dan menghindari session leak
+class ExchangeManager:
+    def __init__(self):
+        self.exchanges = {}
+
+    async def get_exchange(self, name):
+        if name not in self.exchanges:
+            try:
+                exchange_class = getattr(ccxt, name)
+                self.exchanges[name] = exchange_class({"enableRateLimit": True})
+            except Exception as e:
+                logger.error(f"Failed to initialize exchange {name}: {e}")
+                return None
+        return self.exchanges[name]
+
+    async def close_all(self):
+        for name, exchange in self.exchanges.items():
+            try:
+                await exchange.close()
+                logger.info(f"Closed exchange connection: {name}")
+            except Exception as e:
+                logger.error(f"Error closing exchange {name}: {e}")
+        self.exchanges.clear()
+
+exchange_manager = ExchangeManager()
+
+
 # Helper fetch harga live untuk CRYPTO via CCXT
 async def _fetch_crypto_price(symbol):
-    """Fetch OHLCV terbaru untuk crypto pair (e.g. CKB/USDC) via CCXT."""
+    """Fetch OHLCV terbaru untuk crypto pair (e.g. CKB/USDC) via CCXT cached instances."""
     EXCHANGE_LIST = ["binance", "bybit", "gateio", "mexc", "okx", "kucoin"]
     for ex_name in EXCHANGE_LIST:
-        exchange = None
         try:
-            exchange_class = getattr(ccxt, ex_name)
-            exchange = exchange_class({"enableRateLimit": True})
+            exchange = await exchange_manager.get_exchange(ex_name)
+            if not exchange:
+                continue
+                
             ohlcv = await exchange.fetch_ohlcv(symbol, "1m", limit=2)
             if ohlcv and len(ohlcv) > 0:
                 last = ohlcv[-1]  # [timestamp, open, high, low, close, volume]
@@ -35,12 +63,6 @@ async def _fetch_crypto_price(symbol):
                 }
         except Exception:
             pass
-        finally:
-            if exchange:
-                try:
-                    await exchange.close()
-                except Exception:
-                    pass
     return None
 
 
@@ -73,12 +95,6 @@ async def fetch_live_price(symbol):
             "High": float(row["High"]),
             "Low": float(row["Low"]),
         }
-
-
-# HAPUS: import requests_cache
-
-
-# HAPUS: session = requests_cache...
 
 
 async def check_positions():
@@ -130,7 +146,7 @@ async def check_positions():
                     {
                         "$set": {
                             "status": "OPEN",
-                            "opened_at": datetime.utcnow(),
+                            "opened_at": datetime.now(timezone.utc),
                             "fill_price": entry_price,  # Harga eksekusi
                         }
                     },
@@ -207,7 +223,7 @@ async def check_positions():
                     {
                         "$set": {
                             "status": final_status,
-                            "closed_at": datetime.utcnow(),
+                            "closed_at": datetime.now(timezone.utc),
                             "exit_price": exit_price,
                             "exit_reason": exit_reason,
                             "pnl": pnl_net,  # Simpan Net PnL (Realistis)
@@ -267,7 +283,7 @@ async def check_alerts(df, symbol):
                 {
                     "$set": {
                         "status": "TRIGGERED",
-                        "triggered_at": datetime.utcnow(),  # Ini juga sebaiknya pakai ()
+                        "triggered_at": datetime.now(timezone.utc),
                     }
                 },
             )
@@ -275,10 +291,14 @@ async def check_alerts(df, symbol):
 
 async def run_watcher():
     logger.info("🚀 AI TRADING WATCHER (MongoDB Version) STARTED")
-    while True:
-        await check_positions()
-        # Cek setiap 30 detik
-        await asyncio.sleep(30)
+    try:
+        while True:
+            await check_positions()
+            # Cek setiap 30 detik
+            await asyncio.sleep(30)
+    finally:
+        # PENTING: Tutup semua resource saat stop
+        await exchange_manager.close_all()
 
 
 if __name__ == "__main__":
@@ -286,3 +306,5 @@ if __name__ == "__main__":
         asyncio.run(run_watcher())
     except KeyboardInterrupt:
         logger.info("Watcher stopped manually.")
+    except Exception as e:
+        logger.error(f"Watcher crashed: {e}")

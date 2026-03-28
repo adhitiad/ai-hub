@@ -24,10 +24,11 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isValid, isSubmitted },
   } = useForm<LoginInput>({
     resolver: zodResolver(LoginSchema),
     defaultValues: { email: "", password: "" },
+    mode: "onChange",
   });
 
   const onSubmit = async (values: LoginInput) => {
@@ -65,10 +66,10 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden px-4">
       {/* Animated background blobs */}
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute top-1/4 -left-32 w-96 h-96 rounded-full bg-emerald-500/10 blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 -right-32 w-96 h-96 rounded-full bg-purple-600/10 blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-pink-500/5 blur-3xl animate-pulse" style={{ animationDelay: "2s" }} />
+      <div className="absolute inset-0 -z-10" suppressHydrationWarning>
+        <div className="absolute top-1/4 -left-32 w-96 h-96 rounded-full bg-emerald-500/10 blur-3xl animate-pulse" suppressHydrationWarning />
+        <div className="absolute bottom-1/4 -right-32 w-96 h-96 rounded-full bg-purple-600/10 blur-3xl animate-pulse" style={{ animationDelay: "1s" }} suppressHydrationWarning />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-pink-500/5 blur-3xl animate-pulse" style={{ animationDelay: "2s" }} suppressHydrationWarning />
       </div>
 
       {/* Grid pattern overlay */}
@@ -156,8 +157,8 @@ export default function LoginPage() {
             {/* Submit */}
             <Button
               type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-semibold shadow-lg shadow-emerald-500/20 transition-all duration-300 cursor-pointer"
+              disabled={loading || (isSubmitted && !isValid)}
+              className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-semibold shadow-lg shadow-emerald-500/20 transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
               {loading ? (
                 <>
@@ -168,6 +169,12 @@ export default function LoginPage() {
                 "Login"
               )}
             </Button>
+            {/* Hint jika form belum valid */}
+            {!isValid && isSubmitted && (
+              <p className="text-center text-[11px] text-trade-down animate-pulse">
+                ⚠️ Lengkapi form terlebih dahulu
+              </p>
+            )}
           </form>
 
           {/* Register link */}

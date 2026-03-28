@@ -33,6 +33,8 @@ from src.api.search_routes import router as search_router
 from src.api.simulation_routes import router as sim_router
 from src.api.subscription_routes import router as subscription_router
 from src.api.user_routes import router as user_router
+from src.api.assets_routes import router as assets_router
+from src.api.signal_routes import router as signal_router
 
 # --- Imports Core ---
 from src.core.logger import logger
@@ -48,6 +50,9 @@ from src.database.socket_manager import manager, redis_connector_task
 # Load environment variables
 dotenv.load_dotenv()
 
+
+# --- Imports Additional Tasks ---
+from watcher import run_watcher
 
 # --- Configuration Validation ---
 def validate_config():
@@ -100,6 +105,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(start_scheduler()),
         asyncio.create_task(training_scheduler_task()),
         asyncio.create_task(StreamManager().start_consumer()),
+        asyncio.create_task(run_watcher()),  # <-- Watcher digabung ke sini
     ]
 
     try:
@@ -173,6 +179,8 @@ app.include_router(analysis_router)
 app.include_router(chat_router)
 app.include_router(portfolio_router)
 app.include_router(subscription_router)
+app.include_router(assets_router)
+app.include_router(signal_router)
 
 
 # --- 3. Global Endpoints ---

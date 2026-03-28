@@ -2,19 +2,47 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/stores/useAuthStore";
-import { Sidebar } from "@/components/sidebar";
 import { screenerService } from "@/services/api";
+import { useAuthStore } from "@/stores/useAuthStore";
 import type { SignalItem } from "@/types";
+import { cn } from "@/lib/utils";
+
+// shadcn/ui
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import {
-  Filter,
-  Loader2,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  RefreshCw,
-  SlidersHorizontal,
-} from "lucide-react";
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+// FontAwesome
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import type { IconProp } from "@fortawesome/fontawesome-svg-core";
+import {
+  faFilter,
+  faSliders,
+  faCircleNotch,
+  faRotateRight,
+  faArrowTrendUp,
+  faArrowTrendDown,
+  faMinus,
+  faMagnifyingGlass,
+  faEye,
+} from "@fortawesome/free-solid-svg-icons";
 
 export default function ScreenerPage() {
   const router = useRouter();
@@ -64,172 +92,233 @@ export default function ScreenerPage() {
     const a = (action || "HOLD").toUpperCase();
     if (a === "BUY" || a === "STRONG BUY")
       return (
-        <span className="flex items-center gap-1 text-trade-up bg-trade-up/15 px-2.5 py-1 rounded-full text-xs font-bold">
-          <TrendingUp className="w-3 h-3" /> {a}
-        </span>
+        <Badge className="bg-trade-up/15 text-trade-up border-trade-up/20 hover:bg-trade-up/20 gap-1.5 px-2.5 py-1">
+          <FontAwesomeIcon icon={faArrowTrendUp as IconProp} className="w-3 h-3" /> {a}
+        </Badge>
       );
     if (a === "SELL" || a === "STRONG SELL")
       return (
-        <span className="flex items-center gap-1 text-trade-down bg-trade-down/15 px-2.5 py-1 rounded-full text-xs font-bold">
-          <TrendingDown className="w-3 h-3" /> {a}
-        </span>
+        <Badge className="bg-trade-down/15 text-trade-down border-trade-down/20 hover:bg-trade-down/20 gap-1.5 px-2.5 py-1">
+          <FontAwesomeIcon icon={faArrowTrendDown as IconProp} className="w-3 h-3" /> {a}
+        </Badge>
       );
     return (
-      <span className="flex items-center gap-1 text-muted-foreground bg-white/10 px-2.5 py-1 rounded-full text-xs font-bold">
-        <Minus className="w-3 h-3" /> {a}
-      </span>
+      <Badge variant="outline" className="border-white/10 text-muted-foreground gap-1.5 px-2.5 py-1">
+        <FontAwesomeIcon icon={faMinus as IconProp} className="w-3 h-3" /> {a}
+      </Badge>
     );
   };
 
   if (!isAuthenticated) return null;
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      <main className="flex-1 ml-64 p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-purple-400 bg-clip-text text-transparent">
-              Stock Screener
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              🔍 Filter aset berdasarkan sinyal AI — <span className="text-chart-5 font-japanese">スクリーナー</span>
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                showFilters ? "bg-primary/20 text-primary" : "glass-panel text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <SlidersHorizontal className="w-4 h-4" /> Filter
-            </button>
-            <button
-              onClick={runScreener}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/20 text-primary text-sm font-medium hover:bg-primary/30 transition-all cursor-pointer disabled:opacity-50"
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-              Scan
-            </button>
-          </div>
+    <div className="space-y-8 pb-12">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black bg-gradient-to-r from-emerald-400 to-purple-400 bg-clip-text text-transparent uppercase tracking-tight">
+            Stock Screener
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+            🔍 Filter assets with AI signals — <span className="text-chart-5 font-black uppercase tracking-widest text-[10px]">Elite Analysis</span>
+          </p>
         </div>
 
-        {/* Filters Panel */}
-        {showFilters && (
-          <div className="glass-panel rounded-xl p-5 mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="checkbox"
-                checked={signalOnly}
-                onChange={(e) => setSignalOnly(e.target.checked)}
-                className="rounded accent-primary"
-              />
-              <span>Signal Only (BUY/SELL)</span>
-            </label>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="checkbox"
-                checked={bandarAccum}
-                onChange={(e) => setBandarAccum(e.target.checked)}
-                className="rounded accent-primary"
-              />
-              <span>Bandar Akumulasi</span>
-            </label>
-            <div>
-              <label className="text-xs text-muted-foreground">RSI Min</label>
-              <input
-                type="number"
-                value={rsiMin}
-                onChange={(e) => setRsiMin(Number(e.target.value))}
-                min={0}
-                max={100}
-                className="w-full mt-1 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-sm outline-none focus:border-primary/40"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">RSI Max</label>
-              <input
-                type="number"
-                value={rsiMax}
-                onChange={(e) => setRsiMax(Number(e.target.value))}
-                min={0}
-                max={100}
-                className="w-full mt-1 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-sm outline-none focus:border-primary/40"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Results Count */}
-        <div className="flex items-center gap-2 mb-4">
-          <Filter className="w-4 h-4 text-primary" />
-          <span className="text-sm text-muted-foreground">
-            Ditemukan <span className="text-foreground font-bold">{count}</span> aset
-          </span>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn(
+              "glass-panel border-white/10 hover:border-white/20 transition-all gap-2",
+              showFilters && "bg-primary/20 text-primary border-primary/30"
+            )}
+          >
+            <FontAwesomeIcon icon={faSliders as IconProp} className="w-3.5 h-3.5" />
+            Scanner Options
+          </Button>
+          
+          <Button
+            onClick={runScreener}
+            disabled={loading}
+            className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/20 font-black tracking-wider gap-2 px-6"
+          >
+             {loading ? (
+              <FontAwesomeIcon icon={faCircleNotch as IconProp} spin className="w-3.5 h-3.5" />
+            ) : (
+              <FontAwesomeIcon icon={faRotateRight as IconProp} className="w-3.5 h-3.5" />
+            )}
+            RUN SCAN
+          </Button>
         </div>
+      </div>
 
-        {/* Results Table */}
-        {error ? (
-          <div className="glass-panel rounded-xl p-8 text-center text-trade-down">{error}</div>
-        ) : loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
-        ) : (
-          <div className="glass-panel rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/10 text-muted-foreground">
-                  <th className="text-left px-4 py-3 font-medium">Symbol</th>
-                  <th className="text-left px-4 py-3 font-medium">Action</th>
-                  <th className="text-right px-4 py-3 font-medium">Confidence</th>
-                  <th className="text-right px-4 py-3 font-medium">Price</th>
-                  <th className="text-right px-4 py-3 font-medium">TP</th>
-                  <th className="text-right px-4 py-3 font-medium">SL</th>
-                </tr>
-              </thead>
-              <tbody>
-                {results.map((item, i) => (
-                  <tr
-                    key={`${item.symbol}-${i}`}
-                    className="border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer"
-                    onClick={() => router.push(`/dashboard/market?symbol=${item.symbol}`)}
-                  >
-                    <td className="px-4 py-3 font-medium">{item.symbol}</td>
-                    <td className="px-4 py-3">{getActionBadge(item.Action)}</td>
-                    <td className="px-4 py-3 text-right font-mono">
-                      {item.Confidence != null ? `${(item.Confidence as number).toFixed(1)}%` : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono">
-                      {item.Price?.toLocaleString() ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-trade-up">
-                      {(item as Record<string, unknown>).TP
-                        ? Number((item as Record<string, unknown>).TP).toLocaleString()
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-trade-down">
-                      {(item as Record<string, unknown>).SL
-                        ? Number((item as Record<string, unknown>).SL).toLocaleString()
-                        : "—"}
-                    </td>
-                  </tr>
-                ))}
-                {results.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                      Tidak ada aset yang cocok dengan filter.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </main>
+      {/* Filters Panel */}
+      {showFilters && (
+        <Card className="glass-panel border-white/10 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+          <CardHeader className="pb-4">
+             <CardTitle className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                <FontAwesomeIcon icon={faFilter as IconProp} className="w-3.5 h-3.5" />
+                Scan Parameters
+             </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="signalOnly" 
+                    checked={signalOnly} 
+                    onCheckedChange={(checked) => setSignalOnly(!!checked)}
+                  />
+                  <Label htmlFor="signalOnly" className="text-sm font-bold cursor-pointer">Signal Only (BUY/SELL)</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="bandarAccum" 
+                    checked={bandarAccum} 
+                    onCheckedChange={(checked) => setBandarAccum(!!checked)}
+                  />
+                  <Label htmlFor="bandarAccum" className="text-sm font-bold cursor-pointer">Bandar Akumulasi</Label>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">RSI Min Threshold</Label>
+                <Input
+                  type="number"
+                  value={rsiMin}
+                  onChange={(e) => setRsiMin(Number(e.target.value))}
+                  className="bg-white/5 border-white/10 h-10 font-mono"
+                  min={0}
+                  max={100}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">RSI Max Threshold</Label>
+                <Input
+                  type="number"
+                  value={rsiMax}
+                  onChange={(e) => setRsiMax(Number(e.target.value))}
+                  className="bg-white/5 border-white/10 h-10 font-mono"
+                  min={0}
+                  max={100}
+                />
+              </div>
+
+              <div className="flex items-end">
+                <p className="text-[10px] text-muted-foreground italic leading-tight">
+                  Adjust these parameters to find high-probability setups across multiple timeframe analysis.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Main Content Area */}
+      <Card className="glass-panel border-white/10 overflow-hidden">
+        <CardHeader className="border-b border-white/5 bg-white/5 flex flex-row items-center justify-between pb-3">
+           <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center text-primary">
+                 <FontAwesomeIcon icon={faMagnifyingGlass as IconProp} className="w-3.5 h-3.5" />
+              </div>
+              <div>
+                 <CardTitle className="text-lg font-black uppercase tracking-tight">Active Scan results</CardTitle>
+                 <CardDescription className="text-[10px]">
+                    Found <span className="text-primary font-bold">{count}</span> matched assets based on criteria
+                 </CardDescription>
+              </div>
+           </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {error ? (
+            <div className="py-20 text-center space-y-4">
+               <div className="w-12 h-12 rounded-full border border-trade-down/20 bg-trade-down/10 flex items-center justify-center mx-auto text-trade-down">
+                  <FontAwesomeIcon icon={faMinus as IconProp} className="w-4 h-4" />
+               </div>
+               <p className="text-sm text-trade-down font-bold">{error}</p>
+               <Button variant="outline" onClick={runScreener} className="border-white/10">Try Again</Button>
+            </div>
+          ) : loading ? (
+            <div className="py-24 text-center">
+              <FontAwesomeIcon icon={faCircleNotch as IconProp} spin className="w-8 h-8 text-primary mx-auto mb-4" />
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">Analyzing Markets...</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-white/5">
+                  <TableRow className="hover:bg-transparent border-white/10">
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest w-[150px]">Symbol</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-center">Action</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-right">Confidence</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-right">Price</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-right">Target (TP)</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-right">Defensive (SL)</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-center">Charts</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {results?.map((item, i) => (
+                    <TableRow 
+                      key={`${item.symbol}-${i}`}
+                      className="group border-white/5 hover:bg-white/5 transition-all cursor-pointer"
+                      onClick={() => router.push(`/dashboard/market?symbol=${item.symbol}`)}
+                    >
+                      <TableCell className="font-bold py-4">
+                        <div className="flex flex-col">
+                           <span className="text-sm tracking-tight">{item.symbol}</span>
+                           <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-black">Elite Hub</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {getActionBadge(item.Action)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className={cn(
+                          "px-2 py-1 rounded text-xs font-mono font-bold border",
+                          item.Confidence && (item.Confidence as number) > 70 
+                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
+                            : "bg-white/5 text-muted-foreground border-white/10"
+                        )}>
+                          {item.Confidence != null ? `${(item.Confidence as number).toFixed(1)}%` : "—"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-bold text-sm">
+                        {item.Price?.toLocaleString() ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm text-trade-up font-bold">
+                        {(item as any).TP ? Number((item as any).TP).toLocaleString() : "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm text-trade-down font-bold">
+                        {(item as any).SL ? Number((item as any).SL).toLocaleString() : "—"}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="w-8 h-8 rounded-lg border border-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-white/5 text-primary">
+                           <FontAwesomeIcon icon={faEye as IconProp} className="w-3.5 h-3.5" />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {results.length === 0 && !loading && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="h-48 text-center">
+                        <div className="flex flex-col items-center justify-center space-y-2 opacity-40">
+                           <FontAwesomeIcon icon={faFilter as IconProp} className="w-8 h-8 mb-2" />
+                           <p className="text-sm font-bold">No assets matched your criteria.</p>
+                           <p className="text-xs">Try loosening your scan parameters.</p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
