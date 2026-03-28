@@ -76,7 +76,9 @@ export function useSimulationSocket(symbol: string, date: string, autoConnect = 
 
   useEffect(() => {
     if (autoConnect && symbol && date) {
-      connect();
+      // Gunakan microtask (Promise) untuk menghindari pemanggilan setState sinkron 
+      // yang dapat memicu cascading renders di dalam effect.
+      Promise.resolve().then(() => connect());
     }
     return () => disconnect();
   }, [autoConnect, symbol, date, connect, disconnect]);

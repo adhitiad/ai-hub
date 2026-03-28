@@ -46,6 +46,8 @@ export interface SignalItem {
   Action?: string;
   Confidence?: number;
   Price?: number;
+  TP?: number | string;
+  SL?: number | string;
   [key: string]: unknown;
 }
 

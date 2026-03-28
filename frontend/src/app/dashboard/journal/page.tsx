@@ -122,7 +122,7 @@ export default function JournalPage() {
 
         <Tabs 
           value={activeTab} 
-          onValueChange={(v) => setActiveTab(v as any)} 
+          onValueChange={(v) => setActiveTab(v as "history" | "stats")} 
           className="w-auto"
         >
           <TabsList className="glass-panel border-white/10 p-1">

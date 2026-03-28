@@ -7,6 +7,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { systemService } from "@/services/api";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
+import { IconProp } from "@fortawesome/fontawesome-svg-core";
 import { cn } from "@/lib/utils";
 
 export function MainNavbar() {
@@ -56,7 +57,7 @@ export function MainNavbar() {
           {/* Search Bar */}
           <div className="relative w-full max-w-md ml-4 group">
             <FontAwesomeIcon 
-              icon={faSearch} 
+              icon={faSearch as IconProp} 
               className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" 
             />
             <Input

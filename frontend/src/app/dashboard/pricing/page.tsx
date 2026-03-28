@@ -44,12 +44,20 @@ export default function PricingPage() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    setLoading(true);
-    subscriptionService
-      .getPlans()
-      .then(({ data }) => setPlans(data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+
+    const fetchPlans = async () => {
+      setLoading(true);
+      try {
+        const { data } = await subscriptionService.getPlans();
+        setPlans(data);
+      } catch (err) {
+        console.error("Failed to fetch plans:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPlans();
   }, [isAuthenticated]);
 
   if (!isAuthenticated) return null;
