@@ -2,7 +2,6 @@ import asyncio
 
 import ccxt.async_support as ccxt
 import pandas as pd
-import pandas_ta as ta
 import yfinance as yf
 
 from src.core.logger import logger
