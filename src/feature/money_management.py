@@ -1,6 +1,7 @@
 import math
 
 from src.core.logger import logger
+from src.feature.exchange_rate import get_usd_conversion_rate, extract_quote_currency
 from src.database.database import (
     assets_collection,
     signals_collection,
@@ -8,7 +9,9 @@ from src.database.database import (
 )
 
 
-def calculate_lot_size(balance, risk_percentage, sl_price, entry_price, asset_info):
+async def calculate_lot_size(
+    balance, risk_percentage, sl_price, entry_price, asset_info, symbol=None
+):
     """
     Menghitung Lot Size yang aman secara dinamis.
     Mendukung Forex (Decimal Lot) dan Saham Indo (Integer Lot).
@@ -56,10 +59,16 @@ def calculate_lot_size(balance, risk_percentage, sl_price, entry_price, asset_in
         # Value per Lot = Multiplier * Price_Change
 
         risk_per_lot_unit = sl_distance * multiplier
-        # Note: Untuk pair XXXUSD, ini akurat. Untuk Cross pair butuh konversi rate.
-        # Kita simplifikasi asumsi akun USD.
 
-        raw_lot = risk_amount / risk_per_lot_unit
+        # Konversi rate untuk Cross Pair
+        conversion_rate = 1.0
+        if symbol:
+            quote_currency = extract_quote_currency(symbol)
+            conversion_rate = await get_usd_conversion_rate(quote_currency)
+
+        risk_per_lot_unit_usd = risk_per_lot_unit * conversion_rate
+
+        raw_lot = risk_amount / risk_per_lot_unit_usd
         final_lot = round(raw_lot, 2)  # 2 Desimal (0.01)
         if final_lot < 0.01:
             final_lot = 0.01
@@ -113,7 +122,9 @@ async def check_correlation_risk(new_symbol):
     return True, "OK"
 
 
-def calculate_kelly_lot(balance, win_rate_prob, risk_reward_ratio, sl_pips, asset_info):
+async def calculate_kelly_lot(
+    balance, win_rate_prob, risk_reward_ratio, sl_pips, asset_info, symbol=None
+):
     """
     Menghitung Lot Size menggunakan KELLY CRITERION.
     Rumus Kelly: K% = W - [(1 - W) / R]
@@ -163,8 +174,17 @@ def calculate_kelly_lot(balance, win_rate_prob, risk_reward_ratio, sl_pips, asse
             final_lot = math.floor(risk_amount / risk_per_lot)
     else:  # Forex
         risk_per_lot_unit = sl_distance * multiplier
-        if risk_per_lot_unit > 0:
-            final_lot = round(risk_amount / risk_per_lot_unit, 2)
+
+        # Konversi rate untuk Cross Pair
+        conversion_rate = 1.0
+        if symbol:
+            quote_currency = extract_quote_currency(symbol)
+            conversion_rate = await get_usd_conversion_rate(quote_currency)
+
+        risk_per_lot_unit_usd = risk_per_lot_unit * conversion_rate
+
+        if risk_per_lot_unit_usd > 0:
+            final_lot = round(risk_amount / risk_per_lot_unit_usd, 2)
             if final_lot < 0.01:
                 final_lot = 0.01
 
@@ -196,6 +216,8 @@ async def get_safe_lot_size(
     win_prob = ai_confidence / 100.0
 
     # 3. Hitung Kelly
-    lot, note = calculate_kelly_lot(balance, win_prob, risk_reward, sl_dist, asset_info)
+    lot, note = await calculate_kelly_lot(
+        balance, win_prob, risk_reward, sl_dist, asset_info, symbol
+    )
 
     return lot, note
