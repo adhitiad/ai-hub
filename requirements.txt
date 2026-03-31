@@ -41,4 +41,6 @@ networkx               # src/database/graph_analyzer.py
 # Untuk keperluan testing
 httpx                  # tests/test_main.py, tests/test_analysis_flow.py
 pytest-asyncio         # Semua file test async
-pytest     
+pytest
+aiohttp
+certifi
