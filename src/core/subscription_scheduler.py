@@ -49,34 +49,32 @@ async def notify_expiring_users():
         # Ambil total durasi paket user (untuk nentuin aturan mana yg dipakai)
         total_duration = user.get("plan_duration_days", 30)
 
-
+        should_notify = False
 
         # --- LOGIKA SESUAI PERMINTAAN ---
 
         # 1. Paket Mingguan (7 Hari) -> Notif H-3
         if total_duration <= 7:
             if days_left == 3:
-                pass
-
+                should_notify = True
 
         # 2. Paket Bulanan (30 Hari) -> Notif H-7 (1 Minggu)
         elif 7 < total_duration <= 31:
             if days_left == 7:
-                pass
-
+                should_notify = True
 
         # 3. Paket 3 Bulan (90 Hari) -> Notif H-14 (2 Minggu)
         elif 31 < total_duration <= 100:
             if days_left == 14:
-                pass
-
+                should_notify = True
 
         # 4. Paket Promo/Tahunan (> 9 Bulan) -> Notif H-30 (1 Bulan)
         elif total_duration > 100:
             if days_left == 30:
-                pass
+                should_notify = True
 
-
+            if should_notify:
+                logger.debug(f"User {user.get('email')} notification status: {should_notify}")
 
             # Tandai user sudah dikirimi notifikasi HARI INI
             await users_collection.update_one(
