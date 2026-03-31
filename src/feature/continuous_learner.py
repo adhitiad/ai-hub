@@ -11,34 +11,17 @@ from src.core.logger import logger
 from src.database.data_loader import fetch_data, fetch_data_async
 from src.database.memory import get_mistake_history  # <--- Import Memory
 
-MODEL_DIR = "models"
-
-
 def get_latest_model_path(symbol, category):
-    """
-    Mencari file model dengan tanggal paling baru.
-    Format: models/category/SYMBOL_YYYY-MM-DD.zip
-    """
-    safe_symbol = symbol.replace("=", "").replace("^", "")
-    base_dir = f"{MODEL_DIR}/{category.lower()}"
-
-    # Cari semua file yang diawali nama simbol
-    pattern = f"{base_dir}/{safe_symbol}_*.zip"
-    files = glob.glob(pattern)
-
-    # Juga cek file default (tanpa tanggal) sebagai fallback awal
-    default_file = f"{base_dir}/{safe_symbol}.zip"
-    if os.path.exists(default_file):
-        files.append(default_file)
-
-    if not files:
+    model_dir = os.path.join(os.getcwd(), "models")
+    if not os.path.exists(model_dir):
         return None
 
-    # Sortir berdasarkan nama (String YYYY-MM-DD bisa disort secara alfabet)
-    # File terbaru akan ada di urutan pertama (reverse=True)
-    files.sort(reverse=True)
-    return files[0]
+    models = [f for f in os.listdir(model_dir) if f.startswith(f"{symbol}_{category}")]
+    if not models:
+        return None
 
+    latest_model = max(models, key=lambda f: os.path.getctime(os.path.join(model_dir, f)))
+    return os.path.join(model_dir, latest_model)
 
 async def train_weekly_models_async():
     """
@@ -80,7 +63,7 @@ async def train_weekly_models_async():
 
                 # Nama file: SYMBOL_YYYY-MM-DD.zip
                 filename = f"{safe_symbol}_{today_str}.zip"
-                save_path = f"{MODEL_DIR}/{cat_dir}/{filename}"
+                save_path = os.path.join(os.getcwd(), "models", f"{safe_symbol}_{today_str}.zip")
 
                 os.makedirs(os.path.dirname(save_path), exist_ok=True)
                 model.save(save_path)
