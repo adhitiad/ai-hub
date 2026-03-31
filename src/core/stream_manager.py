@@ -1,7 +1,8 @@
+from datetime import datetime, timezone
 import asyncio
 from src.core.logger import logger
 from src.database.redis_client import redis_client
-
+from src.database.database import db
 
 STREAM_KEY = "market_ticks_stream"
 GROUP_NAME = "backend_workers"
@@ -40,25 +41,38 @@ class StreamManager:
                     await asyncio.sleep(0.1)
                     continue
 
+                batch_docs = []
+                batch_msg_ids = []
+
                 for stream, messages in entries:
                     for message_id, data in messages:
                         # 3. PROSES BERAT DI SINI (Simpan DB / Trigger AI)
                         symbol = data[b"symbol"].decode("utf-8")
                         price = float(data[b"price"])
 
-                        # Contoh: Simpan ke Mongo secara batch (simplified here)
-                        # await db.market_data.insert_one({...})
+                        # Handle missing volume field gracefully just in case
+                        volume_bytes = data.get(b"volume")
+                        volume = float(volume_bytes) if volume_bytes else 0.0
 
-                        logger.info("📥 Processed: %s at %s", symbol, price)
+                        batch_docs.append({
+                            "symbol": symbol,
+                            "price": price,
+                            "volume": volume,
+                            "timestamp": datetime.now(timezone.utc)
+                        })
+                        batch_msg_ids.append(message_id)
 
-                        # 4. Acknowledge (Tandai sudah diproses)
+                if batch_docs:
+                    # Simpan ke Mongo secara batch
+                    await db.market_data.insert_many(batch_docs)
 
-                        await redis_client.xack(STREAM_KEY, GROUP_NAME, message_id)
+                    for doc in batch_docs:
+                        logger.info("📥 Processed: %s at %s", doc["symbol"], doc["price"])
+
+                    # 4. Acknowledge (Tandai sudah diproses) batch msg ids
+                    await redis_client.xack(STREAM_KEY, GROUP_NAME, *batch_msg_ids)
 
             except Exception as e:
                 logger.error("Stream Error: %s", e)
                 await asyncio.sleep(1)
 
-
-# Cara Pakai di main.py:
-# asyncio.create_task(StreamManager().start_consumer())# asyncio.create_task(StreamManager().start_consumer())
