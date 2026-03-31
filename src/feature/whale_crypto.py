@@ -16,7 +16,9 @@ async def analyze_crypto_whales(symbol: str):
     """
     Menganalisis pergerakan Paus di pasar Spot Crypto.
     Logika: Menghitung Net Volume dari transaksi besar (Aggressive Buys vs Sells).
+    Mendukung agregasi data dari semua exchange secara concurrent.
     """
+
     async def _close_exchange(exchange):
         if not exchange:
             return
@@ -31,71 +33,74 @@ async def analyze_crypto_whales(symbol: str):
             except Exception:
                 pass
 
-    for ex_name in EXCHANGE_LIST:
+    async def _fetch_and_process(ex_name):
         exchange = None
         try:
             exchange_class = getattr(ccxt, ex_name)
-            # enableRateLimit wajib agar tidak kena ban IP
             exchange = exchange_class({"enableRateLimit": True})
-
-            # 1. Fetch Recent Trades (Transaksi yang baru saja terjadi)
-            # Limit 1000 transaksi terakhir
             trades = await exchange.fetch_trades(symbol, limit=1000)
 
             if not trades:
                 await _close_exchange(exchange)
-                continue
+                return 0.0, 0.0
 
-            # 2. Proses Data
             df = pd.DataFrame(trades)
             df["cost"] = df["price"] * df["amount"]
 
-            # 3. Filter Transaksi Paus (Hanya yang > Threshold)
             whale_trades = df[df["cost"] >= WHALE_THRESHOLD].copy()
 
             if whale_trades.empty:
                 await _close_exchange(exchange)
-                continue
+                return 0.0, 0.0
 
-            # 4. Hitung Buy vs Sell Volume Paus
-            # 'side' = 'buy' berarti Taker BUY (Agresif Beli)
-            # 'side' = 'sell' berarti Taker SELL (Agresif Jual/Guyur)
-            buy_vol = whale_trades[whale_trades["side"] == "buy"]["cost"].sum()
-            sell_vol = whale_trades[whale_trades["side"] == "sell"]["cost"].sum()
-
-            total_vol = buy_vol + sell_vol
-            net_flow = buy_vol - sell_vol
-
-            # 5. Tentukan Sinyal
-            # Score skala -100 sampai 100
-            whale_score = (net_flow / total_vol) * 100 if total_vol > 0 else 0
-
-            action = "NEUTRAL"
-            reason = f"Whale Flow: {whale_score:.1f}%"
-
-            if whale_score > 20:
-                action = "BUY"
-                reason = f"🐳 Whales Accumulating (+${net_flow/1000:.1f}k)"
-            elif whale_score < -20:
-                action = "SELL"
-                reason = f"🐋 Whales Dumping (-${abs(net_flow)/1000:.1f}k)"
+            buy_vol = float(whale_trades[whale_trades["side"] == "buy"]["cost"].sum())
+            sell_vol = float(whale_trades[whale_trades["side"] == "sell"]["cost"].sum())
 
             await _close_exchange(exchange)
-            return {
-                "action": action,
-                "score": whale_score,
-                "buy_vol": buy_vol,
-                "sell_vol": sell_vol,
-                "reason": reason,
-                "exchange": ex_name,
-            }
+            return buy_vol, sell_vol
 
         except Exception as e:
             logger.error("Whale Analysis Error (%s on %s): %s", symbol, ex_name, e)
             await _close_exchange(exchange)
-            continue
+            return 0.0, 0.0
 
-    return {"action": "NEUTRAL", "score": 0, "reason": "No exchange available"}
+    tasks = [_fetch_and_process(ex_name) for ex_name in EXCHANGE_LIST]
+    results = await asyncio.gather(*tasks)
+
+    total_buy_vol = sum(res[0] for res in results)
+    total_sell_vol = sum(res[1] for res in results)
+
+    if total_buy_vol == 0 and total_sell_vol == 0:
+        return {
+            "action": "NEUTRAL",
+            "score": 0,
+            "reason": "No whale activity found across exchanges",
+            "exchange": "aggregated",
+        }
+
+    total_vol = total_buy_vol + total_sell_vol
+    net_flow = total_buy_vol - total_sell_vol
+
+    whale_score = (net_flow / total_vol) * 100 if total_vol > 0 else 0
+
+    action = "NEUTRAL"
+    reason = f"Whale Flow: {whale_score:.1f}%"
+
+    if whale_score > 20:
+        action = "BUY"
+        reason = f"🐳 Whales Accumulating (+${net_flow / 1000:.1f}k)"
+    elif whale_score < -20:
+        action = "SELL"
+        reason = f"🐋 Whales Dumping (-${abs(net_flow) / 1000:.1f}k)"
+
+    return {
+        "action": action,
+        "score": whale_score,
+        "buy_vol": total_buy_vol,
+        "sell_vol": total_sell_vol,
+        "reason": reason,
+        "exchange": "aggregated",
+    }
 
 
 # Test Runner (Optional)
