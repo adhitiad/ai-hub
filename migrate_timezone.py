@@ -1,3 +1,4 @@
+from pymongo import UpdateOne
 import argparse
 import asyncio
 import logging
@@ -57,6 +58,8 @@ async def migrate_timezone(apply: bool) -> int:
         coll_scanned = 0
         coll_updated = 0
         coll_fields = 0
+        bulk_operations = []
+        BATCH_SIZE = 1000
 
         async for doc in cursor:
             total_docs += 1
@@ -73,7 +76,14 @@ async def migrate_timezone(apply: bool) -> int:
                 coll_fields += len(updates)
                 coll_updated += 1
                 if apply:
-                    await collection.update_one({"_id": doc["_id"]}, {"$set": updates})
+                    bulk_operations.append(UpdateOne({"_id": doc["_id"]}, {"$set": updates}))
+                    if len(bulk_operations) >= BATCH_SIZE:
+                        await collection.bulk_write(bulk_operations)
+                        bulk_operations.clear()
+
+        if apply and bulk_operations:
+            await collection.bulk_write(bulk_operations)
+            bulk_operations.clear()
 
         logging.info(
             f"OK {collection_name}: scanned {coll_scanned} docs, updated {coll_updated} docs, fields set {coll_fields}"
