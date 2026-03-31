@@ -1,7 +1,3 @@
-import numpy as np
-import pandas as pd
-
-
 def analyze_forex_whale(df):
     """
     Core Logic: Mendeteksi jejak Institutional Trader (SMC)
