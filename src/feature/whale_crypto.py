@@ -1,3 +1,4 @@
+# pylint: disable=duplicate-code
 # src/core/whale_crypto.py
 
 import asyncio

@@ -30,6 +30,7 @@ async def fetch_crypto_ohlcv(symbol, timeframe="1h", limit=1000):
     Multi-Exchange Fetcher: Mencari data di berbagai exchange secara bersamaan.
     """
 
+    # pylint: disable=duplicate-code
     async def _close_exchange(exchange):
         if not exchange:
             return
@@ -37,6 +38,7 @@ async def fetch_crypto_ohlcv(symbol, timeframe="1h", limit=1000):
             await exchange.close()
         except Exception:
             pass
+        # pylint: enable=duplicate-code
         # Extra safety for some exchanges/aiohttp sessions
         session = getattr(exchange, "session", None)
         if session:
@@ -65,7 +67,10 @@ async def fetch_crypto_ohlcv(symbol, timeframe="1h", limit=1000):
 
             if ohlcv and len(ohlcv) > 0:
                 logger.info(
-                    "✅ Found %s on %s (%d candles)", symbol, ex_name.upper(), len(ohlcv)
+                    "✅ Found %s on %s (%d candles)",
+                    symbol,
+                    ex_name.upper(),
+                    len(ohlcv),
                 )
 
                 # Convert ke DataFrame
@@ -87,8 +92,7 @@ async def fetch_crypto_ohlcv(symbol, timeframe="1h", limit=1000):
         return None, None
 
     tasks = [
-        asyncio.create_task(fetch_from_exchange(ex_name))
-        for ex_name in EXCHANGE_LIST
+        asyncio.create_task(fetch_from_exchange(ex_name)) for ex_name in EXCHANGE_LIST
     ]
 
     result_df = pd.DataFrame()
