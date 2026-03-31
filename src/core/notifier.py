@@ -1,11 +1,32 @@
 import asyncio
 
-import requests
+import aiohttp
+import ssl
+import certifi
 
 from src.core.logger import logger
 
 # Config (Bisa dipindah ke .env)
 TELEGRAM_BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"  # Dapat dari @BotFather
+
+
+# Global aiohttp ClientSession
+_session = None
+
+
+async def get_session() -> aiohttp.ClientSession:
+    global _session
+    if _session is None or _session.closed:
+        ssl_context = ssl.create_default_context(cafile=certifi.where())
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+        _session = aiohttp.ClientSession(connector=connector)
+    return _session
+
+
+async def close_session():
+    global _session
+    if _session is not None and not _session.closed:
+        await _session.close()
 
 
 async def send_telegram_message(chat_id, message):
@@ -23,9 +44,15 @@ async def send_telegram_message(chat_id, message):
     }
 
     try:
-        response = await asyncio.to_thread(requests.post, url, json=payload, timeout=5)
-        if response.status_code != 200:
-            logger.error("Telegram Fail: %s", response.text)
+        session = await get_session()
+        async with session.post(url, json=payload, timeout=5) as response:
+            if response.status != 200:
+                text = await response.text()
+                logger.error("Telegram Fail: %s", text)
+    except aiohttp.ClientError as e:
+        logger.error("Telegram Error: %s", e)
+    except asyncio.TimeoutError:
+        logger.error("Telegram Error: Request timed out")
     except Exception as e:
         logger.error("Telegram Error: %s", e)
 
