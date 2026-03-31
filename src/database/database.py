@@ -71,6 +71,11 @@ async def init_db_indexes():
 
 async def regenerate_api_key(user_id: str) -> str:
     """Generate API key baru dan invalidate yang lama secara aman"""
+    # 1. Ambil hash lama untuk invalidasi cache
+    user = await users_collection.find_one({"_id": ObjectId(user_id)}, {"api_key_hash": 1})
+    old_hash = user.get("api_key_hash") if user else None
+
+    # 2. Buat key baru
     new_key = f"ak_{secrets.token_urlsafe(32)}"
     key_hash = hashlib.sha256(new_key.encode()).hexdigest()
 
@@ -90,4 +95,10 @@ async def regenerate_api_key(user_id: str) -> str:
             },
         },
     )
+
+    # 3. Invalidate cache lama
+    if old_hash:
+        from src.database.cache_manager import SmartCache
+        await SmartCache.delete(f"auth:user:{old_hash}")
+
     return new_key
