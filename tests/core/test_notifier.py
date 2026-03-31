@@ -1,7 +1,10 @@
-import pytest
+"""
+Tests for the notifier module, specifically format_signal_message.
+"""
 from src.core.notifier import format_signal_message
 
 def test_format_signal_message_buy_full_fields():
+    """Test format_signal_message with all fields populated for a BUY action."""
     signal_data = {
         "Action": "BUY",
         "Symbol": "BTC/USDT",
@@ -26,6 +29,7 @@ def test_format_signal_message_buy_full_fields():
     assert "2023-10-27T10:00:00Z" in msg
 
 def test_format_signal_message_sell_partial_fields():
+    """Test format_signal_message with partial fields for a SELL action."""
     signal_data = {
         "Action": "SELL",
         "Symbol": "ETH/USDT"
@@ -42,6 +46,7 @@ def test_format_signal_message_sell_partial_fields():
     assert "Time:" not in msg
 
 def test_format_signal_message_unknown_action():
+    """Test format_signal_message with an unknown action."""
     signal_data = {
         "Action": "HOLD",
         "Symbol": "SOL/USDT"
@@ -54,6 +59,7 @@ def test_format_signal_message_unknown_action():
     assert "SOL/USDT" in msg
 
 def test_format_signal_message_not_a_dict():
+    """Test format_signal_message with truthy non-dict inputs and None."""
     # Truthy non-dict string
     assert format_signal_message("BUY BTC") == "Sinyal tidak valid."
 
@@ -64,6 +70,7 @@ def test_format_signal_message_not_a_dict():
     assert format_signal_message(None) == "Sinyal tidak valid."
 
 def test_format_signal_message_empty_dict():
+    """Test format_signal_message with an empty dictionary."""
     msg = format_signal_message({})
 
     assert "⚪" in msg
