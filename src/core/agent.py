@@ -31,7 +31,6 @@ from src.feature.pattern_recognizer import detect_chart_patterns
 # --- 3. RISK & MONEY MANAGEMENT ---
 from src.feature.risk_manager import check_circuit_breaker, risk_manager
 
-# from src.feature.smart_money import analyze_smart_money
 from src.feature.whale_crypto import analyze_crypto_whales
 
 # --- 4. OPTIONAL MODULES (ML & News) ---
