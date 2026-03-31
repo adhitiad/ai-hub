@@ -1,5 +1,3 @@
-import numpy as np
-import pandas as pd
 
 
 def detect_chart_patterns(df):

@@ -2,11 +2,9 @@ import asyncio
 
 import ccxt.async_support as ccxt
 import pandas as pd
-import pandas_ta as ta
 import yfinance as yf
 
 from src.core.logger import logger
-from src.feature.feature_enginering import enrich_data, get_model_input
 
 # Daftar Exchange yang akan dicek (Urutan Prioritas)
 # Gate & MEXC biasanya punya banyak koin micin/baru

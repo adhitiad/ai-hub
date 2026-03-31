@@ -1,6 +1,5 @@
 import os
 import shutil  # Penting untuk fungsi deploy
-import sys
 
 from stable_baselines3 import PPO
 

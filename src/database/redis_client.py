@@ -1,11 +1,9 @@
 # src/core/redis_client.py
-import asyncio
 import json
 import os
 from typing import Any, Dict, Optional
 
 from dotenv import load_dotenv
-from redis import asyncio as aioredis
 
 from src.core.logger import logger
 

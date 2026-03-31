@@ -3,13 +3,11 @@ import os
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 from stable_baselines3 import PPO
 
 from src.core.config_assets import get_asset_info
 from src.core.logger import logger
 from src.database.data_loader import fetch_data_async
-from src.feature.feature_enginering import enrich_data, get_model_input
 
 MODELS_DIR = "models"
 

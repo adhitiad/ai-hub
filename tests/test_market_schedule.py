@@ -1,10 +1,6 @@
-from datetime import datetime, time
 from unittest.mock import patch
 
-import pytest
-import pytz
 
-from src.core.market_schedule import JAKARTA_TZ, is_market_open
 
 
 class TestMarketSchedule:

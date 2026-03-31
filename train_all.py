@@ -11,8 +11,6 @@ logging.getLogger("gym").setLevel(logging.ERROR)
 # Suppress gym deprecation warning from gym package used by SB3
 warnings.filterwarnings("ignore", message=".*Gym has been unmaintained.*")
 
-import gymnasium as gym
-import shimmy
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
@@ -23,7 +21,6 @@ from src.database.database import assets_collection
 from src.core.env import TradingEnv
 
 # [PENTING] Import Feature Engineering agar model pintar
-from src.feature.feature_enginering import enrich_data, get_model_input
 from src.core.logger import logger
 
 dotenv.load_dotenv()

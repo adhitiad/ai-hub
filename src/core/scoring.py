@@ -1,5 +1,3 @@
-import numpy as np
-import pandas as pd
 
 from src.feature.smart_money import analyze_smart_money
 

@@ -1,4 +1,3 @@
-import io
 
 from src.core.financial_report_analyzer import FinancialReportAnalyzer
 

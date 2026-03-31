@@ -1,6 +1,5 @@
 import os
 import uuid
-from typing import Dict, List, Optional
 
 
 import chromadb

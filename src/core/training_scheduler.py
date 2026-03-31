@@ -1,8 +1,6 @@
 import asyncio
-import json
 import os
 import shutil
-from datetime import datetime
 
 import torch
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -45,7 +43,6 @@ async def weekly_retraining_job():
     old_accuracy = 0.0
 
     if os.path.exists(METRICS_PATH):
-        import json
 
         with open(METRICS_PATH, "r") as f:
             old_data = json.load(f)

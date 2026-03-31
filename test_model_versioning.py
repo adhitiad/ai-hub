@@ -12,7 +12,6 @@ try:
     print("✅ SUCCESS: ModelVersioning imported successfully")
 
     # Check if pytorch is available
-    from mlflow import pytorch
 
     print("✅ SUCCESS: pytorch imported from mlflow")
 

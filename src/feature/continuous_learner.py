@@ -5,10 +5,8 @@ import os
 
 from stable_baselines3 import PPO
 
-from src.core.config_assets import ASSETS, get_asset_info
 from src.core.env import TradingEnv
 from src.core.logger import logger
-from src.database.data_loader import fetch_data, fetch_data_async
 from src.database.memory import get_mistake_history  # <--- Import Memory
 
 MODEL_DIR = "models"

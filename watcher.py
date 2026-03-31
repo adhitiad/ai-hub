@@ -1,8 +1,6 @@
 import asyncio  # Pastikan ada
 from datetime import datetime, timezone
 
-import pandas as pd
-import pytz
 import yfinance as yf
 
 import ccxt.async_support as ccxt
