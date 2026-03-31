@@ -1,4 +1,3 @@
-import pandas as pd
 
 from src.database.database import signals_collection
 
