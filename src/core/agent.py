@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import glob
 import os
+from collections import OrderedDict
 
 import numpy as np
 import pandas as pd
@@ -17,6 +18,7 @@ from src.core.config_assets import ASSETS, get_asset_info
 from src.core.forex_engine import ForexEngine
 from src.core.logger import logger
 from src.core.rl_environment import TradingEnvironment as TradingEnv
+
 # from src.core.scoring import calculate_technical_score
 from src.database.data_loader import fetch_data_async
 from src.database.vector_db import recall_similar_events
@@ -28,6 +30,7 @@ from src.feature.pattern_recognizer import detect_chart_patterns
 
 # --- 3. RISK & MONEY MANAGEMENT ---
 from src.feature.risk_manager import check_circuit_breaker, risk_manager
+
 # from src.feature.smart_money import analyze_smart_money
 from src.feature.whale_crypto import analyze_crypto_whales
 
@@ -37,6 +40,13 @@ try:
     from src.ml.ml_features import ml_analyzer
 except ImportError:
     pass
+
+
+# --- MODEL CACHE ---
+# Cache LRU sederhana untuk menyimpan model di memori dengan batasan (misal 5 model)
+# Ini mencegah pemanggilan PPO.load dari disk berulang kali yang menghabiskan CPU dan disk I/O.
+MAX_CACHED_MODELS = 5
+_LOADED_MODELS = OrderedDict()
 
 MODEL_DIR = "models"
 MODEL_BRAIN_PREFIX = "ai_trader_ppo"
@@ -101,7 +111,7 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         can_trade, _ = await check_circuit_breaker(
             balance=balance_for_risk,
             max_daily_loss_percent=risk_manager.MAX_DAILY_LOSS_PERCENT,
-            max_consecutive_losses=risk_manager.MAX_CONSECUTIVE_LOSSES
+            max_consecutive_losses=risk_manager.MAX_CONSECUTIVE_LOSSES,
         )
         if not can_trade:
             return False
@@ -133,9 +143,27 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         if df.empty:
             return {"Symbol": symbol, "Action": "HOLD", "Reason": "No Data Fetched"}
 
-        # --- E. LOAD MODEL OBJECT ---
+        # --- E. LOAD MODEL OBJECT (WITH CACHE) ---
+        model = None
         try:
-            model = await asyncio.to_thread(PPO.load, latest_file)
+            if latest_file in _LOADED_MODELS:
+                # Ambil dari cache dan jadikan model terbaru (LRU Update)
+                model = _LOADED_MODELS.pop(latest_file)
+                _LOADED_MODELS[latest_file] = model
+                logger.debug(f"⚡ Model loaded from memory cache: {latest_file}")
+            else:
+                # Load dari disk menggunakan thread terpisah agar tidak memblokir event loop
+                model = await asyncio.to_thread(PPO.load, latest_file)
+
+                # Simpan ke cache
+                _LOADED_MODELS[latest_file] = model
+
+                # Pertahankan ukuran cache (Hapus model yang paling jarang digunakan jika melewati batas)
+                if len(_LOADED_MODELS) > MAX_CACHED_MODELS:
+                    removed_key, _ = _LOADED_MODELS.popitem(last=False)
+                    logger.debug(f"🧹 Removed oldest model from cache: {removed_key}")
+
+                logger.info(f"💾 Model loaded from disk and cached: {latest_file}")
         except Exception as e:
             logger.error("Failed load model %s: %s", symbol, e)
             return {"Symbol": symbol, "Action": "HOLD", "Reason": "No Model"}
@@ -154,29 +182,40 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
                 feature_cols = [c for c in df.columns if c not in exclude_cols]
                 obs = df.iloc[-1][feature_cols].values.astype(np.float32)
                 if obs.shape[0] < expected_shape:
-                    obs = np.pad(obs, (0, expected_shape - obs.shape[0]), mode='constant')
+                    obs = np.pad(
+                        obs, (0, expected_shape - obs.shape[0]), mode="constant"
+                    )
                 elif obs.shape[0] > expected_shape:
                     obs = obs[:expected_shape]
             elif expected_shape == 5:
                 last_row = df.iloc[-1]
                 close_min = df["Close"].min()
                 close_max = df["Close"].max()
-                close_scaled = (last_row["Close"] - close_min) / (close_max - close_min + 1e-9)
+                close_scaled = (last_row["Close"] - close_min) / (
+                    close_max - close_min + 1e-9
+                )
                 bandar_accum_score = 0
                 if "Volume" in df.columns:
                     # Gunakan .values[-1] untuk menghindari masalah iloc pada type checker
                     vol_mean_series = df["Volume"].rolling(20).mean()
                     vol_mean = vol_mean_series.values[-1]
-                    direction = 1 if last_row.get("Close", 0) > last_row.get("Open", 0) else -1
-                    bandar_accum_score = (direction * last_row["Volume"]) / (vol_mean if vol_mean else 1)
-                
-                obs = np.array([
-                    close_scaled,
-                    last_row.get("RSI_14", 50) / 100.0,
-                    last_row.get("MACD_12_26_9", 0),
-                    bandar_accum_score,
-                    last_row.get("ATR_14", 0)
-                ], dtype=np.float32)
+                    direction = (
+                        1 if last_row.get("Close", 0) > last_row.get("Open", 0) else -1
+                    )
+                    bandar_accum_score = (direction * last_row["Volume"]) / (
+                        vol_mean if vol_mean else 1
+                    )
+
+                obs = np.array(
+                    [
+                        close_scaled,
+                        last_row.get("RSI_14", 50) / 100.0,
+                        last_row.get("MACD_12_26_9", 0),
+                        bandar_accum_score,
+                        last_row.get("ATR_14", 0),
+                    ],
+                    dtype=np.float32,
+                )
             else:
                 df_features = get_model_input(df)
                 scaler = StandardScaler()
@@ -424,7 +463,12 @@ class TradingAgent:
         self.stock_brain = Bandarmology()
         self.crypto_brain = CryptoAnalyst()
         self.forex_brain = ForexEngine()
-        self.load_brain()
+        # AI Brain di-load secara eksplisit via initialize() agar tidak memblokir startup
+
+    async def initialize(self):
+        """Memuat model secara eksplisit (misal saat startup aplikasi)."""
+        if self.model is None:
+            await asyncio.to_thread(self.load_brain)
 
     def load_brain(self):
         """Memuat model jika sudah ada"""
@@ -438,7 +482,7 @@ class TradingAgent:
         else:
             logger.info("⚠️ No AI Brain found. Need training first.")
 
-    def train_self(self, df: pd.DataFrame, timesteps=10000):
+    async def train_self(self, df: pd.DataFrame, timesteps=10000):
         """
         Proses Self-Learning.
         AI akan dimasukkan ke dalam simulasi (Env) menggunakan data df.
@@ -480,7 +524,9 @@ class TradingAgent:
                     direction = np.where(df["Close"] > df["Open"], 1, -1)
                 # Gunakan nilai numerik langsung daripada .replace untuk memuaskan type checker
                 vol_mean = df["Volume"].rolling(20).mean()
-                df["bandar_accum_score"] = (direction * df["Volume"]) / vol_mean.replace(0, np.nan)
+                df["bandar_accum_score"] = (
+                    direction * df["Volume"]
+                ) / vol_mean.replace(0, np.nan)
             else:
                 df["bandar_accum_score"] = 0
 
@@ -489,21 +535,32 @@ class TradingAgent:
 
         logger.info("🏋️ Starting Training Session (%s steps)...", timesteps)
 
-        env = DummyVecEnv([lambda: TradingEnv(df)])
+        # Wrap environment creation and PPO learning in thread to not block event loop
+        def _train_job():
+            env = DummyVecEnv([lambda: TradingEnv(df)])
 
-        if self.model is None:
-            self.model = PPO("MlpPolicy", env, verbose=1)
-        else:
-            self.model.set_env(env)
+            if self.model is None:
+                self.model = PPO("MlpPolicy", env, verbose=1)
+            else:
+                self.model.set_env(env)
 
-        self.model.learn(total_timesteps=timesteps)
+            self.model.learn(total_timesteps=timesteps)
+            return self.model
 
-        os.makedirs(MODEL_DIR, exist_ok=True)
-        date_str = datetime.date.today().strftime("%Y-%m-%d")
-        model_path = os.path.join(
-            MODEL_DIR, f"{MODEL_BRAIN_PREFIX}_{date_str}_{timesteps}steps.zip"
-        )
-        self.model.save(model_path)
+        # Eksekusi proses berat di thread terpisah
+        self.model = await asyncio.to_thread(_train_job)
+
+        # Proses IO / Save juga di-thread
+        def _save_job(model):
+            os.makedirs(MODEL_DIR, exist_ok=True)
+            date_str = datetime.date.today().strftime("%Y-%m-%d")
+            m_path = os.path.join(
+                MODEL_DIR, f"{MODEL_BRAIN_PREFIX}_{date_str}_{timesteps}steps.zip"
+            )
+            model.save(m_path)
+            return m_path
+
+        model_path = await asyncio.to_thread(_save_job, self.model)
         logger.info("✅ Training Finished. Brain Updated & Saved: %s", model_path)
 
     def _consult_rl_model(self, market_data):
