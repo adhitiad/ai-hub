@@ -1,7 +1,11 @@
+"""
+Telegram Notifier module.
+Handles sending asynchronous notifications to Telegram.
+"""
 import asyncio
+import ssl
 
 import aiohttp
-import ssl
 import certifi
 
 from src.core.logger import logger
@@ -11,23 +15,25 @@ TELEGRAM_BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"  # Dapat dari @BotFather
 
 
 # Global aiohttp ClientSession
-_session = None
-
+_SESSION = None
 
 async def get_session() -> aiohttp.ClientSession:
-    global _session
-    if _session is None or _session.closed:
+    """
+    Get or create a global aiohttp ClientSession.
+    """
+    global _SESSION # pylint: disable=global-statement
+    if _SESSION is None or _SESSION.closed:
         ssl_context = ssl.create_default_context(cafile=certifi.where())
         connector = aiohttp.TCPConnector(ssl=ssl_context)
-        _session = aiohttp.ClientSession(connector=connector)
-    return _session
-
+        _SESSION = aiohttp.ClientSession(connector=connector)
+    return _SESSION
 
 async def close_session():
-    global _session
-    if _session is not None and not _session.closed:
-        await _session.close()
-
+    """
+    Close the global aiohttp ClientSession if it exists.
+    """
+    if _SESSION is not None and not _SESSION.closed:
+        await _SESSION.close()
 
 async def send_telegram_message(chat_id, message):
     """
@@ -53,7 +59,7 @@ async def send_telegram_message(chat_id, message):
         logger.error("Telegram Error: %s", e)
     except asyncio.TimeoutError:
         logger.error("Telegram Error: Request timed out")
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-exception-caught
         logger.error("Telegram Error: %s", e)
 
 
