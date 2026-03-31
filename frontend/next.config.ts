@@ -9,9 +9,7 @@ const nextConfig: NextConfig = {
   },
   reactCompiler: true,
   // Turbopack warning fix
-  turbopack: {
-    root: __dirname,
-  },
+  // Removed __dirname since it causes ReferenceError in ES modules
 };
 
 export default nextConfig;
