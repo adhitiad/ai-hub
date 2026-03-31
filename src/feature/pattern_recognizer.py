@@ -1,5 +1,43 @@
-import numpy as np
-import pandas as pd
+def _detect_doji(c_body, c_range, c_lower_wick, c_upper_wick):
+    if (c_body / c_range) < 0.1:
+        if c_lower_wick > 3 * c_body and c_upper_wick < c_body:
+            return 10, "Bullish Dragonfly Doji"
+        elif c_upper_wick > 3 * c_body and c_lower_wick < c_body:
+            return -10, "Bearish Gravestone Doji"
+        else:
+            return 0, "Neutral Doji"
+    return 0, None
+
+
+def _detect_hammer(c_body, c_lower_wick, c_upper_wick):
+    if c_lower_wick > 2 * c_body and c_upper_wick < c_body:
+        return 15, "Bullish Hammer"
+    return 0, None
+
+
+def _detect_shooting_star(c_body, c_lower_wick, c_upper_wick):
+    if c_upper_wick > 2 * c_body and c_lower_wick < c_body:
+        return -15, "Bearish Shooting Star"
+    return 0, None
+
+
+def _detect_engulfing(p_open, p_close, c_open, c_close):
+    if (p_close < p_open) and (c_close > c_open):
+        if c_close > p_open and c_open < p_close:
+            return 25, "Bullish Engulfing"
+    elif (p_close > p_open) and (c_close < c_open):
+        if c_close < p_open and c_open > p_close:
+            return -25, "Bearish Engulfing"
+    return 0, None
+
+
+def _detect_marubozu(c_body, c_range, c_open, c_close):
+    if (c_body / c_range) > 0.9:
+        if c_close > c_open:
+            return 10, "Bullish Marubozu"
+        else:
+            return -10, "Bearish Marubozu"
+    return 0, None
 
 
 def detect_chart_patterns(df):
@@ -35,13 +73,10 @@ def detect_chart_patterns(df):
     c_lower_wick = min(c_close, c_open) - c_low
 
     # Previous Candle
-    p_open, p_high, p_low, p_close = (
+    p_open, p_close = (
         prev["Open"],
-        prev["High"],
-        prev["Low"],
         prev["Close"],
     )
-    p_body = abs(p_close - p_open)
 
     # Hindari pembagian dengan nol
     if c_range == 0:
@@ -50,64 +85,52 @@ def detect_chart_patterns(df):
     # ==========================
     # 1. DOJI (Indecision)
     # ==========================
-    # Body sangat tipis (< 10% dari total range)
-    if (c_body / c_range) < 0.1:
-        # Cek tipe Doji
-        if c_lower_wick > 3 * c_body and c_upper_wick < c_body:
-            patterns.append("Bullish Dragonfly Doji")
-            score += 10
-        elif c_upper_wick > 3 * c_body and c_lower_wick < c_body:
-            patterns.append("Bearish Gravestone Doji")
-            score -= 10
-        else:
-            patterns.append("Neutral Doji")
-            # Score 0 atau +5/-5 tergantung tren (disini netral dulu)
+    doji_score, doji_pattern = _detect_doji(c_body, c_range, c_lower_wick, c_upper_wick)
+    if doji_pattern:
+        score += doji_score
+        patterns.append(doji_pattern)
 
     # ==========================
     # 2. HAMMER & HANGING MAN
     # ==========================
-    # Lower wick panjang (> 2x body), Upper wick kecil
-    elif c_lower_wick > 2 * c_body and c_upper_wick < c_body:
-        # Hammer (Bullish) biasanya di lembah, Hanging Man (Bearish) di puncak
-        # Kita asumsikan Bullish signal sederhana
-        patterns.append("Bullish Hammer")
-        score += 15
+    elif doji_pattern is None:
+        hammer_score, hammer_pattern = _detect_hammer(
+            c_body, c_lower_wick, c_upper_wick
+        )
+        if hammer_pattern:
+            score += hammer_score
+            patterns.append(hammer_pattern)
 
-    # ==========================
-    # 3. SHOOTING STAR & INVERTED HAMMER
-    # ==========================
-    # Upper wick panjang (> 2x body), Lower wick kecil
-    elif c_upper_wick > 2 * c_body and c_lower_wick < c_body:
-        # Shooting Star (Bearish)
-        patterns.append("Bearish Shooting Star")
-        score -= 15
+        # ==========================
+        # 3. SHOOTING STAR & INVERTED HAMMER
+        # ==========================
+        else:
+            star_score, star_pattern = _detect_shooting_star(
+                c_body, c_lower_wick, c_upper_wick
+            )
+            if star_pattern:
+                score += star_score
+                patterns.append(star_pattern)
 
     # ==========================
     # 4. ENGULFING (Kuat)
     # ==========================
-    # Bullish Engulfing: Prev Merah, Curr Hijau. Body Curr "menelan" Prev.
-    if (p_close < p_open) and (c_close > c_open):
-        if c_close > p_open and c_open < p_close:
-            patterns.append("Bullish Engulfing")
-            score += 25
-
-    # Bearish Engulfing: Prev Hijau, Curr Merah.
-    elif (p_close > p_open) and (c_close < c_open):
-        if c_close < p_open and c_open > p_close:
-            patterns.append("Bearish Engulfing")
-            score -= 25
+    engulfing_score, engulfing_pattern = _detect_engulfing(
+        p_open, p_close, c_open, c_close
+    )
+    if engulfing_pattern:
+        score += engulfing_score
+        patterns.append(engulfing_pattern)
 
     # ==========================
     # 5. MARUBOZU (Momentum)
     # ==========================
-    # Body penuh (> 90% range), wick sangat kecil
-    if (c_body / c_range) > 0.9:
-        if c_close > c_open:
-            patterns.append("Bullish Marubozu")
-            score += 10
-        else:
-            patterns.append("Bearish Marubozu")
-            score -= 10
+    marubozu_score, marubozu_pattern = _detect_marubozu(
+        c_body, c_range, c_open, c_close
+    )
+    if marubozu_pattern:
+        score += marubozu_score
+        patterns.append(marubozu_pattern)
 
     # Clamping Score agar tetap di range -100 s/d 100
     total_score = max(min(score, 100), -100)
