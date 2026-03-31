@@ -19,7 +19,6 @@ from src.core.forex_engine import ForexEngine
 from src.core.logger import logger
 from src.core.rl_environment import TradingEnvironment as TradingEnv
 
-# from src.core.scoring import calculate_technical_score
 from src.database.data_loader import fetch_data_async
 from src.database.vector_db import recall_similar_events
 from src.feature.cryto_analysis import CryptoAnalyst
