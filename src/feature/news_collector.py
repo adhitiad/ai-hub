@@ -1,7 +1,6 @@
 # src/core/news_collector.py
 
 import urllib.parse
-from datetime import datetime, timedelta
 
 import feedparser
 import nltk
@@ -55,17 +54,10 @@ def get_google_news_rss(symbol, asset_type="forex"):
     feed = feedparser.parse(final_url)
 
     news_items = []
-
-    # Ambil max 5 berita terbaru dalam 24 jam terakhir
-    limit_date = datetime.now(datetime.now().astimezone().tzinfo) - timedelta(hours=24)
-
     for entry in feed.entries[:5]:  # Ambil 5 teratas
         try:
             # Parse tanggal publish
             pub_date = parser.parse(entry.published)
-
-            # Skip berita basi (> 24 jam)
-            # if pub_date < limit_date: continue
 
             news_items.append(
                 {
@@ -94,7 +86,7 @@ def analyze_sentiment_vader(text):
         # VADER bagus untuk teks pendek/headline bahasa Inggris
         scores = vader.polarity_scores(text)
         return scores["compound"]
-    except:
+    except Exception:
         # Fallback TextBlob (bisa sedikit handle bahasa lain via translation internal jika perlu)
         return TextBlob(text).sentiment.polarity
 
