@@ -101,13 +101,19 @@ async def login_user(data: LoginModel, response: Response):
     await redis_client.delete(fail_key)
     
     # Session Rotation: Generate key baru setiap login
+    old_hash = user.get("api_key_hash")
     new_api_key = generate_api_key()
     hashed_api_key = hash_api_key(new_api_key)
-    
+
     await users_collection.update_one(
         {"_id": user["_id"]},
-        {"$set": {"api_key_hash": hashed_api_key}, "$unset": {"api_key": ""}}
+        {"$set": {"api_key_hash": hashed_api_key}, "$unset": {"api_key": ""}},
     )
+
+    # Invalidate old cache
+    if old_hash:
+        from src.database.cache_manager import SmartCache
+        await SmartCache.delete(f"auth:user:{old_hash}")
     
     # Setel cookie otentikasi (HttpOnly & SameSite)
     response.set_cookie(
