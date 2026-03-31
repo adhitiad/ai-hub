@@ -9,6 +9,7 @@ import ccxt.async_support as ccxt
 
 from src.core.logger import logger
 from src.database.database import alerts_collection, signals_collection
+from src.core.formula_evaluator import safe_eval
 
 # CONFIG BIAYA (Simulasi Real Market)
 SPREAD_PIPS = 2  # Spread rata-rata (Forex)
@@ -261,20 +262,13 @@ async def check_alerts(df, symbol):
         # Cek Formula Alert
         elif alert["type"] == "FORMULA":
             safe_env = {
-                "CLOSE": last_row["Close"],
-                "RSI": last_row.get("RSI_14", 50),
-                "VOLUME": last_row["Volume"],
-                "SMA20": last_row.get("SMA_20", 0),
+                "CLOSE": float(last_row["Close"]),
+                "RSI": float(last_row.get("RSI_14", 50)),
+                "VOLUME": float(last_row["Volume"]),
+                "SMA20": float(last_row.get("SMA_20", 0)),
             }
-            try:
-                condition_str = alert["condition"].upper()
-                for k, v in safe_env.items():
-                    condition_str = condition_str.replace(k, str(v))
-
-                if eval(condition_str):
-                    triggered = True
-            except:
-                pass
+            if safe_eval(alert["condition"], safe_env):
+                triggered = True
 
         if triggered:
             logger.info("🚨 ALERT TRIGGERED: %s - %s", symbol, alert["note"])
