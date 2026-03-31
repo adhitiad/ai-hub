@@ -1,11 +1,27 @@
+"use client";
+
 import { MainNavbar } from "@/components/MainNavbar";
 import { Sidebar } from "@/components/sidebar";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { isAuthenticated } = useAuthStore();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push("/login");
+    }
+  }, [isAuthenticated, router]);
+
+  if (!isAuthenticated) return null;
+
   return (
     <div className="relative min-h-screen flex w-full bg-background text-foreground transition-colors duration-500 overflow-x-hidden">
       {/* Background radial glow */}

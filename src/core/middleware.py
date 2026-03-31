@@ -61,11 +61,10 @@ class LoggingMiddleware:
                 "process_time": f"{process_time:.4f}s",
             }
             try:
-                # Simpan ke DB secara non-blocking (fire and forget - di production gunakan background task)
-                # await db.logs.insert_one(log_entry)
-                pass # Matikan sementara logger DB jika memperlambat
-            except Exception:
-                pass
+                # Simpan ke DB secara non-blocking
+                await db.logs.insert_one(log_entry)
+            except Exception as e:
+                logger.error("❌ Failed to save audit log: %s", e)
 
         # Console Log
         log_msg = f"[{request.method}] {request.url.path} - Status: {status_code} - Time: {process_time:.4f}s"

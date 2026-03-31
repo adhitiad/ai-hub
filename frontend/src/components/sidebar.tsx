@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { authService } from "@/services/api";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { 
   faChartLine, 
@@ -70,8 +71,13 @@ export function Sidebar() {
   const { user, logout } = useAuthStore();
   const userRole = user?.role ?? "free";
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+    } catch {
+      // Jika gagal tetap arahkan ke login
+      logout();
+    }
     router.push("/login");
   };
 

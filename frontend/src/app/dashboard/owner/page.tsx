@@ -23,7 +23,13 @@ import {
   ChevronRight,
   Folder,
   File,
+  Lock,
+  Unlock,
+  ShieldAlert,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { authService } from "@/services/api";
+import { toast } from "sonner";
 
 interface FileNode {
   name: string;
@@ -53,6 +59,12 @@ export default function OwnerPage() {
 
   // Financial
   const [health, setHealth] = useState<Record<string, unknown> | null>(null);
+
+  // Security Verification
+  const [isVerified, setIsVerified] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [password, setPassword] = useState("");
+  const [showVerifyModal, setShowVerifyModal] = useState(true);
 
   useEffect(() => {
     if (!isAuthenticated) router.push("/login");
@@ -138,8 +150,26 @@ export default function OwnerPage() {
     }
   };
 
-  const renderTree = (nodes: FileNode[], depth = 0) =>
-    nodes.map((node) => (
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password) return;
+    setVerifying(true);
+    try {
+      // Re-login sederhana untuk verifikasi password
+      await authService.login({ email: user?.email || "", password });
+      setIsVerified(true);
+      setShowVerifyModal(false);
+      toast.success("Identity Verified");
+    } catch {
+      toast.error("Invalid Password");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const renderTree = (nodes: FileNode[], depth = 0) => {
+    if (!Array.isArray(nodes)) return null;
+    return nodes.map((node) => (
       <div key={node.path || node.name}>
         <button
           onClick={() => node.type === "file" && readFile(node.path || node.name)}
@@ -164,6 +194,7 @@ export default function OwnerPage() {
         {node.children && renderTree(node.children, depth + 1)}
       </div>
     ));
+  };
 
   if (user?.role !== "owner") return null;
 
@@ -361,6 +392,46 @@ export default function OwnerPage() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Verification Overlay */}
+        {showVerifyModal && !isVerified && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md animate-in fade-in duration-300">
+            <Card className="w-full max-w-md glass-panel border-chart-4/30 shadow-2xl">
+              <CardHeader className="text-center">
+                <div className="mx-auto w-12 h-12 rounded-full bg-chart-4/20 flex items-center justify-center mb-4 relative">
+                  <ShieldAlert className="w-6 h-6 text-chart-4" />
+                  <Lock className="w-3 h-3 text-chart-4 absolute -bottom-1 -right-1" />
+                </div>
+                <CardTitle className="text-xl">Identity Verification</CardTitle>
+                <CardDescription>
+                  Enter your password to access sensitive owner tools.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleVerify} className="space-y-4">
+                  <div className="space-y-2">
+                    <Input
+                      type="password"
+                      placeholder="Your Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="bg-white/5 border-white/10"
+                      autoFocus
+                    />
+                  </div>
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-chart-4 hover:bg-chart-4/80 text-black font-semibold"
+                    disabled={verifying}
+                  >
+                    {verifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Unlock className="w-4 h-4 mr-2" />}
+                    Verify & Unlock
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        )}
     </div>
   );
 }

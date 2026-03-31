@@ -19,7 +19,7 @@ class LLMAnalyst:
     async def generate_response(
         self,
         prompt: str,
-        model: str = "meta-llama/llama-guard-4-12b",
+        model: str = "openai/gpt-oss-120b",
         temperature: float = 1,
         is_json: bool = False,
     ) -> str | None:
@@ -86,7 +86,7 @@ class LLMAnalyst:
         """
         try:
             completion = await self.client.chat.completions.create(
-                model="meta-llama/llama-guard-4-12b",
+                model="openai/gpt-oss-120b",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_content},
@@ -128,7 +128,7 @@ class LLMAnalyst:
         """
         try:
             completion = await self.client.chat.completions.create(
-                model="meta-llama/llama-guard-4-12b",
+                model="openai/gpt-oss-120b",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_content},

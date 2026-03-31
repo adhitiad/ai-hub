@@ -244,9 +244,16 @@ async def validate_and_fix_code(
 @router.post("/files/save")
 def save_file(data: FileWriteModel, user: dict = Depends(verify_owner)):
     """
-    Menyimpan file TAPI menolak jika Syntax Error.
-    Mencegah Server Crash (Error 500).
+    Menyimpan file TAPI menolak jika Syntax Error atau jika fitur dimatikan di ENV.
+    Mencegah Server Crash (Error 500) dan RCE di Production.
     """
+    # Proteksi tambahan: Cek apakah fitur edit diizinkan di environment ini
+    if os.getenv("ENABLE_FILE_EDITING") != "true":
+        raise HTTPException(
+            status_code=403, 
+            detail="File editing is disabled in this environment (Production Mode). Please use Git/CI-CD for code changes."
+        )
+
     safe_path = validate_safe_path(data.path)
 
     # 1. Safety Check: Cek Syntax Python sebelum save

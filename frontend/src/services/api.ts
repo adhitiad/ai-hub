@@ -1,4 +1,5 @@
 import axios from "axios";
+import { toast } from "sonner";
 import { useAuthStore } from "@/stores/useAuthStore";
 import type {
   LoginInput,
@@ -32,11 +33,14 @@ import type {
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
   timeout: 30000,
+  withCredentials: true, // Izinkan pengiriman cookie
 });
 
-// Interceptor to add API key header
+// Interceptor to add API key header from store (if present - legacy support)
 api.interceptors.request.use(
   (config) => {
+    // Kita tetap coba ambil dari store jika ada (misal di non-browser environment)
+    // Tapi di browser modern, cookie akan menangani otentikasi.
     const token = useAuthStore.getState().apiKey;
     if (token) {
       config.headers["X-API-Key"] = token;
@@ -46,12 +50,47 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// --- 4. Global Error Interceptor (Auto Toast) ---
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response?.status;
+    const message = error.response?.data?.detail || error.response?.data?.message || "Terjadi kesalahan sistem";
+
+    if (status === 401) {
+      // Sesi kedaluwarsa atau tidak sah
+      useAuthStore.getState().logout();
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+      toast.error("Sesi telah berakhir. Silakan login kembali.");
+    } else if (status === 403) {
+      toast.error("Akses ditolak: " + message);
+    } else if (status === 429) {
+      toast.error("Terlalu banyak permintaan (Rate Limit). Mohon tunggu sebentar.");
+    } else if (status >= 500) {
+      toast.error("Kesalahan Server: " + message);
+    } else {
+      // Hanya tampilkan toast jika bukan 404 (biasanya dihandel lokal)
+      if (status !== 404) {
+        toast.error(message);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 // ========== Auth ==========
 export const authService = {
   login: (data: LoginInput) =>
     api.post<LoginResponse>("/auth/login", data),
   register: (data: { email: string; password: string }) =>
     api.post<RegisterResponse>("/auth/register", data),
+  logout: () =>
+    api.post("/auth/logout").finally(() => {
+      useAuthStore.getState().logout();
+    }),
 };
 
 // ========== Dashboard ==========

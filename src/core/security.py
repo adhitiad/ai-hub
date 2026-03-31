@@ -1,4 +1,5 @@
 import secrets
+import hashlib
 
 from passlib.context import CryptContext
 
@@ -17,3 +18,8 @@ def get_password_hash(password):
 def generate_api_key():
     """Membuat API Key random yang aman (32 karakter hex)"""
     return secrets.token_hex(32)
+
+
+def hash_api_key(api_key: str) -> str:
+    """Membuas hash SHA-256 dari API Key untuk disimpan di DB"""
+    return hashlib.sha256(api_key.encode()).hexdigest()

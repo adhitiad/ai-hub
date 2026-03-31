@@ -3,23 +3,41 @@ from datetime import datetime
 
 import dotenv
 from fastapi import HTTPException, Security
-from fastapi.security.api_key import APIKeyHeader
-
+from src.core.security import hash_api_key
 from src.database.database import fix_id, users_collection
 
 dotenv.load_dotenv()
 
 
+from fastapi.security.api_key import APIKeyHeader, APIKeyCookie
+from starlette.requests import Request
+
+dotenv.load_dotenv()
+
+
 api_key_header_name = os.getenv("API_KEY_HEADER", "X-API-Key")
-api_key_header = APIKeyHeader(name=api_key_header_name)
+api_key_header = APIKeyHeader(name=api_key_header_name, auto_error=False)
+
+api_key_cookie_name = "session_token"
+api_key_cookie = APIKeyCookie(name=api_key_cookie_name, auto_error=False)
 
 
-async def get_current_user(api_key: str = Security(api_key_header)):
+async def get_current_user(
+    request: Request,
+    api_key_h: str = Security(api_key_header),
+    api_key_c: str = Security(api_key_cookie),
+):
+    api_key = api_key_h or api_key_c
+
     if not api_key:
-        raise HTTPException(status_code=403, detail="API Key Missing")
+        raise HTTPException(
+            status_code=401,
+            detail="Otentikasi diperlukan. Sesi mungkin kedaluwarsa.",
+        )
 
-    # 1. Cari di Mongo
-    user = await users_collection.find_one({"api_key": api_key})
+    # 1. Cari di Mongo dengan Hash API Key
+    hashed_key = hash_api_key(api_key)
+    user = await users_collection.find_one({"api_key_hash": hashed_key})
 
     if not user:
         raise HTTPException(status_code=403, detail="Invalid API Key")

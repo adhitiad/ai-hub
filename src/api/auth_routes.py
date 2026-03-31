@@ -1,13 +1,18 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi_limiter.depends import RateLimiter
 from pydantic import BaseModel, EmailStr
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from src.core.logger import logger
-from src.core.security import generate_api_key, get_password_hash, verify_password
+from src.core.security import (
+    generate_api_key,
+    get_password_hash,
+    hash_api_key,
+    verify_password,
+)
 from src.database.database import users_collection
 from src.database.redis_client import redis_client
 
@@ -26,18 +31,19 @@ class LoginModel(BaseModel):
 
 
 @router.post("/register", dependencies=[Depends(RateLimiter(times=5, seconds=60))])
-async def register_user(data: RegisterModel):
+async def register_user(data: RegisterModel, response: Response):
     try:
         existing = await users_collection.find_one({"email": data.email})
         if existing:
             raise HTTPException(status_code=400, detail="Email sudah terdaftar.")
 
         new_api_key = generate_api_key()
+        hashed_api_key = hash_api_key(new_api_key)
 
         new_user = {
             "email": data.email,
             "password_hash": get_password_hash(data.password),
-            "api_key": new_api_key,  # Simpan plain untuk backward compatibility (idealnya di-hash)
+            "api_key_hash": hashed_api_key,
             "role": "free",
             "subscription_status": "active",
             "daily_requests_limit": 75,
@@ -48,10 +54,21 @@ async def register_user(data: RegisterModel):
         }
 
         await users_collection.insert_one(new_user)
+        
+        # Setel cookie otentikasi
+        response.set_cookie(
+            key="session_token",
+            value=new_api_key,
+            httponly=True,
+            samesite="lax",
+            secure=False, # Set ke True di production (HTTPS dialihkan)
+            max_age=30 * 24 * 60 * 60, # 30 hari
+        )
+
         return {
             "status": "success",
             "message": "Registrasi berhasil.",
-            "api_key": new_api_key,  # Tampilkan HANYA SEKALI di sini
+            "api_key": new_api_key,
             "code": 201,
         }
     except HTTPException:
@@ -62,10 +79,9 @@ async def register_user(data: RegisterModel):
 
 
 @router.post("/login", dependencies=[Depends(RateLimiter(times=5, seconds=60))])
-async def login_user(data: LoginModel):
+async def login_user(data: LoginModel, response: Response):
     fail_key = f"login_fail:{data.email}"
 
-    # Ambil record gagal dari redis (Handle jika redis mengembalikan bytes)
     failed_attempts_raw = await redis_client.get(fail_key)
     failed_attempts = int(failed_attempts_raw) if failed_attempts_raw else 0
 
@@ -77,23 +93,46 @@ async def login_user(data: LoginModel):
 
     user = await users_collection.find_one({"email": data.email})
 
-    # PERBAIKAN KRITIS: Gabungkan cek user ada ATAU password salah dalam satu blok
-    # Agar jika email tidak ada, sistem tetap mencatatnya sebagai percobaan gagal.
     if not user or not verify_password(data.password, user["password_hash"]):
         await redis_client.incr(fail_key)
-        await redis_client.expire(fail_key, 900)  # 15 menit
-        # Jangan beri tahu apakah email atau password yang salah (Mencegah enumerasi email)
+        await redis_client.expire(fail_key, 900)
         raise HTTPException(status_code=400, detail="Email atau password salah.")
 
-    # Reset kegagalan jika sukses
     await redis_client.delete(fail_key)
+    
+    # Session Rotation: Generate key baru setiap login
+    new_api_key = generate_api_key()
+    hashed_api_key = hash_api_key(new_api_key)
+    
+    await users_collection.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"api_key_hash": hashed_api_key}, "$unset": {"api_key": ""}}
+    )
+    
+    # Setel cookie otentikasi (HttpOnly & SameSite)
+    response.set_cookie(
+        key="session_token",
+        value=new_api_key,
+        httponly=True,
+        samesite="lax",
+        secure=False, # Gunakan True di production dengan HTTPS
+        max_age=30 * 24 * 60 * 60, # 30 hari
+    )
 
-    # Catatan: Di masa depan, ganti pengembalian 'api_key' ini dengan JWT Access Token
     return {
         "status": "success",
         "user": {
             "email": user["email"],
             "role": user["role"],
-            "api_key": user.get("api_key", ""),
+            "api_key": new_api_key, # Key baru untuk sesi ini
         },
     }
+
+
+@router.post("/logout")
+async def logout_user(response: Response):
+    """
+    Mengakhiri sesi dengan menghapus cookie otentikasi.
+    """
+    response.delete_cookie(key="session_token")
+    return {"status": "success", "message": "Berhasil keluar."}

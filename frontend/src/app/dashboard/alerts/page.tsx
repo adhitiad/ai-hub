@@ -1,20 +1,20 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/stores/useAuthStore";
 import { Sidebar } from "@/components/sidebar";
 import { alertsService } from "@/services/api";
+import { useAuthStore } from "@/stores/useAuthStore";
 import type { Alert } from "@/types";
 import {
+  AlertTriangle,
   Bell,
+  CheckCircle2,
+  Loader2,
   Plus,
   Trash2,
-  Loader2,
   X,
-  AlertTriangle,
-  CheckCircle2,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 export default function AlertsPage() {
   const router = useRouter();
@@ -93,9 +93,9 @@ export default function AlertsPage() {
   if (!isAuthenticated) return null;
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen rounded-lg shadow-lg bg-background">
       <Sidebar />
-      <main className="flex-1 ml-64 p-6">
+      <main className="flex-1  p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -103,7 +103,8 @@ export default function AlertsPage() {
               Alerts
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              🔔 Notifikasi harga & formula — <span className="text-chart-5">アラート</span>
+              🔔 Notifikasi harga & formula —{" "}
+              <span className="text-chart-5">アラート</span>
             </p>
           </div>
           <button
@@ -145,9 +146,11 @@ export default function AlertsPage() {
                   key={id}
                   className="glass-panel rounded-xl p-4 flex items-center gap-4 hover:border-primary/20 transition-all"
                 >
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-                    a.status === "ACTIVE" ? "bg-trade-up/15" : "bg-white/10"
-                  }`}>
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                      a.status === "ACTIVE" ? "bg-trade-up/15" : "bg-white/10"
+                    }`}
+                  >
                     {a.status === "ACTIVE" ? (
                       <Bell className="w-5 h-5 text-trade-up" />
                     ) : (
@@ -160,9 +163,13 @@ export default function AlertsPage() {
                       <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-muted-foreground">
                         {a.type}
                       </span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        a.status === "ACTIVE" ? "bg-trade-up/15 text-trade-up" : "bg-white/10 text-muted-foreground"
-                      }`}>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full ${
+                          a.status === "ACTIVE"
+                            ? "bg-trade-up/15 text-trade-up"
+                            : "bg-white/10 text-muted-foreground"
+                        }`}
+                      >
                         {a.status}
                       </span>
                     </div>
@@ -178,7 +185,11 @@ export default function AlertsPage() {
                     disabled={deleting === id}
                     className="p-2 rounded-lg hover:bg-trade-down/10 text-muted-foreground hover:text-trade-down transition-all cursor-pointer disabled:opacity-50"
                   >
-                    {deleting === id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    {deleting === id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
               );
@@ -192,7 +203,10 @@ export default function AlertsPage() {
             <div className="glass-panel rounded-2xl p-6 w-full max-w-md border border-white/10 shadow-2xl">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-lg font-bold">Buat Alert Baru</h2>
-                <button onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-foreground cursor-pointer">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="text-muted-foreground hover:text-foreground cursor-pointer"
+                >
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -200,7 +214,9 @@ export default function AlertsPage() {
               <div className="space-y-4">
                 {/* Symbol */}
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Symbol</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    Symbol
+                  </label>
                   <input
                     type="text"
                     value={formSymbol}
@@ -212,7 +228,9 @@ export default function AlertsPage() {
 
                 {/* Type */}
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Tipe Alert</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    Tipe Alert
+                  </label>
                   <div className="flex gap-2">
                     {["PRICE", "FORMULA"].map((t) => (
                       <button
@@ -234,7 +252,9 @@ export default function AlertsPage() {
                 {formType === "PRICE" ? (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Kondisi</label>
+                      <label className="text-xs text-muted-foreground mb-1 block">
+                        Kondisi
+                      </label>
                       <select
                         value={formCondition}
                         onChange={(e) => setFormCondition(e.target.value)}
@@ -245,7 +265,9 @@ export default function AlertsPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Target Harga</label>
+                      <label className="text-xs text-muted-foreground mb-1 block">
+                        Target Harga
+                      </label>
                       <input
                         type="number"
                         value={formTargetPrice}
@@ -257,7 +279,9 @@ export default function AlertsPage() {
                   </div>
                 ) : (
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Formula</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">
+                      Formula
+                    </label>
                     <input
                       type="text"
                       value={formCondition}
@@ -270,7 +294,9 @@ export default function AlertsPage() {
 
                 {/* Note */}
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Catatan (opsional)</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    Catatan (opsional)
+                  </label>
                   <input
                     type="text"
                     value={formNote}
@@ -285,7 +311,11 @@ export default function AlertsPage() {
                   disabled={!formSymbol || creating}
                   className="w-full py-2.5 rounded-lg bg-primary/20 text-primary font-medium hover:bg-primary/30 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  {creating ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Plus className="w-4 h-4" />
+                  )}
                   Buat Alert
                 </button>
               </div>
