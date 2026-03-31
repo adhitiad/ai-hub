@@ -4,18 +4,25 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.core.ml_features import MarketMLAnalyzer
+from src.ml.ml_features import MarketMLAnalyzer
 
 
 class TestMarketMLAnalyzer:
     def setup_method(self):
         """Setup before each test"""
-        self.analyzer = MarketMLAnalyzer()
+        with patch("src.ml.ml_features.os.path.exists", return_value=False):
+            self.analyzer = MarketMLAnalyzer()
 
     def test_init(self):
         """Test initialization"""
         assert hasattr(self.analyzer, "scaler")
         assert hasattr(self.analyzer, "rf_model")
+
+    def test_reload_model(self):
+        """Test model reload functionality"""
+        with patch.object(self.analyzer, "_load_rf_model") as mock_load:
+            self.analyzer.reload_model()
+            mock_load.assert_called_once()
 
     def test_analyze_trend_slope(self):
         """Test trend slope analysis"""
@@ -51,7 +58,7 @@ class TestMarketMLAnalyzer:
         regime = self.analyzer.detect_market_regime(small_df)
         assert regime == 1  # Default normal
 
-    @patch("src.core.ml_features.joblib.load")
+    @patch("src.ml.ml_features.joblib.load")
     def test_rf_signal_confirmation_with_model(self, mock_load):
         """Test RF signal confirmation with loaded model"""
         # Mock the RF model
