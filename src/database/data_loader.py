@@ -2,11 +2,10 @@ import asyncio
 
 import ccxt.async_support as ccxt
 import pandas as pd
-import pandas_ta as ta
 import yfinance as yf
 
 from src.core.logger import logger
-from src.feature.feature_enginering import enrich_data, get_model_input
+from src.feature.feature_enginering import enrich_data
 
 # Daftar Exchange yang akan dicek (Urutan Prioritas)
 # Gate & MEXC biasanya punya banyak koin micin/baru
@@ -28,7 +27,7 @@ EXCHANGE_LIST = [
 
 async def fetch_crypto_ohlcv(symbol, timeframe="1h", limit=1000):
     """
-    Multi-Exchange Fetcher: Mencari data di berbagai exchange secara berurutan.
+    Multi-Exchange Fetcher: Mencari data di berbagai exchange secara bersamaan.
     """
 
     async def _close_exchange(exchange):
@@ -46,14 +45,20 @@ async def fetch_crypto_ohlcv(symbol, timeframe="1h", limit=1000):
             except Exception:
                 pass
 
-    for ex_name in EXCHANGE_LIST:
+        # Explicitly try to close any internal connections if left open
+        try:
+            if hasattr(exchange, "clients"):
+                for client in exchange.clients.values():
+                    await client.close()
+        except Exception:
+            pass
+
+    async def fetch_from_exchange(ex_name):
         exchange = None
         try:
             exchange_class = getattr(ccxt, ex_name)
             # enableRateLimit wajib agar tidak kena ban IP
             exchange = exchange_class({"enableRateLimit": True})
-
-            # logger.info(f"🔍 Checking {symbol} on {ex_name.upper()}...")
 
             # Fetch OHLCV
             ohlcv = await exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
@@ -70,18 +75,64 @@ async def fetch_crypto_ohlcv(symbol, timeframe="1h", limit=1000):
                 df.set_index("Date", inplace=True)
                 del df["timestamp"]
 
-                await _close_exchange(exchange)
-                return df
+                return df, exchange
 
-        except Exception:
-            # Ignore error (misal symbol not found), lanjut ke exchange berikutnya
+        except asyncio.CancelledError:
             pass
-        finally:
-            await _close_exchange(exchange)
+        except Exception:
+            # Ignore error (misal symbol not found)
+            pass
 
-    # Jika sudah cek semua exchange tapi nihil
-    logger.warning("❌ %s not found on any configured exchanges.", symbol)
-    return pd.DataFrame()
+        await _close_exchange(exchange)
+        return None, None
+
+    tasks = [
+        asyncio.create_task(fetch_from_exchange(ex_name))
+        for ex_name in EXCHANGE_LIST
+    ]
+
+    result_df = pd.DataFrame()
+    exchange_to_close = None
+
+    pending = set(tasks)
+
+    while pending:
+        done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+
+        for task in done:
+            try:
+                df, exchange = await task
+                if df is not None:
+                    if result_df.empty:
+                        # First successful result
+                        result_df = df
+                        exchange_to_close = exchange
+                        # Cancel remaining tasks
+                        for t in pending:
+                            t.cancel()
+                    else:
+                        # If multiple tasks completed at the exact same time, close the extra ones
+                        await _close_exchange(exchange)
+            except Exception:
+                pass
+
+        if not result_df.empty:
+            break
+
+    # Wait for cancelled tasks to handle CancelledError and close exchanges
+    if pending:
+        await asyncio.gather(*pending, return_exceptions=True)
+
+    if exchange_to_close:
+        await _close_exchange(exchange_to_close)
+
+    # Some exchanges require extra time to close resources in aiohttp
+    await asyncio.sleep(0.1)
+
+    if result_df.empty:
+        logger.warning("❌ %s not found on any configured exchanges.", symbol)
+
+    return result_df
 
 
 def _fetch_yfinance_sync(symbol, period, interval):
