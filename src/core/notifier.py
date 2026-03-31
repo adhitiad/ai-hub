@@ -34,17 +34,42 @@ def format_signal_message(signal_data):
     """
     Format pesan sinyal agar cantik di HP.
     """
+    if not isinstance(signal_data, dict):
+        return "Sinyal tidak valid."
+
+    action = signal_data.get("Action", "WAIT")
+    symbol = signal_data.get("Symbol", "UNKNOWN")
+    price = signal_data.get("Price", "N/A")
+    tp = signal_data.get("Tp", "N/A")
+    sl = signal_data.get("Sl", "N/A")
+    ai_analysis = signal_data.get("AI_Analysis", "Technical Signal")
+
     # Icon berdasarkan action
-    icon = "🟢" if signal_data["Action"] == "BUY" else "🔴"
+    if action == "BUY":
+        icon = "🟢"
+    elif action == "SELL":
+        icon = "🔴"
+    else:
+        icon = "⚪"
 
     msg = (
-        f"<b>{icon} NEW SIGNAL: {signal_data['Symbol']}</b>\n\n"
-        f"<b>Action:</b> {signal_data['Action']}\n"
-        f"<b>Price:</b> {signal_data['Price']}\n"
-        f"<b>TP:</b> {signal_data['Tp']}\n"
-        f"<b>SL:</b> {signal_data['Sl']}\n\n"
+        f"<b>{icon} NEW SIGNAL: {symbol}</b>\n\n"
+        f"<b>Action:</b> {action}\n"
+        f"<b>Price:</b> {price}\n"
+        f"<b>TP:</b> {tp}\n"
+        f"<b>SL:</b> {sl}\n"
+    )
+
+    if "Confidence" in signal_data:
+        msg += f"<b>Confidence:</b> {signal_data['Confidence']}\n"
+
+    if "Timestamp" in signal_data:
+        msg += f"<b>Time:</b> {signal_data['Timestamp']}\n"
+
+    msg += (
+        f"\n"
         f"📊 <b>Analysis:</b>\n"
-        f"{signal_data.get('AI_Analysis', 'Technical Signal')}\n\n"
+        f"{ai_analysis}\n\n"
         f"<i>Disclaimer On. Do Your Own Research.</i>"
     )
     return msg
