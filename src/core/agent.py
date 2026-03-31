@@ -414,6 +414,13 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
         if asset_type == "crypto":
             decimals = 2 if current_price > 1 else 6
 
+        # Calcluate Distribution Rank
+        rank = "SPECULATIVE"
+        if confidence >= 85:
+            rank = "ELITE"
+        elif confidence >= 70:
+            rank = "PREMIUM"
+
         result = {
             "Symbol": symbol,
             "Action": final_action,
@@ -423,6 +430,9 @@ async def get_detailed_signal(symbol, asset_info=None, custom_balance=None):
             "LotSize": f"{lot_size} Lot",
             "LotNum": lot_size,
             "Prob": f"{confidence:.1f}%",
+            "ProbNum": confidence,
+            "Rank": rank,
+            "AssetType": asset_type.upper(),
             "AI_Analysis": " | ".join(reasons),
         }
 

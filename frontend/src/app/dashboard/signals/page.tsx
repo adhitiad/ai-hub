@@ -25,10 +25,12 @@ import {
   faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 export default function SignalsPage() {
-  const [activeTab, setActiveTab] = useState<"active" | "expired">("active");
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<"active" | "expired">((searchParams.get("status") as any) || "active");
   const [signals, setSignals] = useState<TradingSignal[]>([]);
   const [stats, setStats] = useState<SignalStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,6 +38,15 @@ export default function SignalsPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
+  const [rank, setRank] = useState<string>("ALL");
+  const [assetType, setAssetType] = useState<string>("ALL");
+
+  useEffect(() => {
+    const r = searchParams.get("rank");
+    const a = searchParams.get("asset_type");
+    if (r) setRank(r);
+    if (a) setAssetType(a);
+  }, [searchParams]);
 
   const fetchSignals = useCallback(
     async (isRefresh = false) => {
@@ -44,23 +55,17 @@ export default function SignalsPage() {
 
       try {
         const [res, statsRes] = await Promise.all([
-          signalService.list({ status: activeTab, page, limit }),
+          signalService.list({
+            status: activeTab,
+            page,
+            limit,
+            rank: rank === "ALL" ? undefined : rank,
+            asset_type: assetType === "ALL" ? undefined : assetType,
+          }),
           signalService.getStats(),
         ]);
 
-        let data = res.data.data;
-
-        // Filter active signals to 3 hours as requested
-        if (activeTab === "active") {
-          const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
-          data = data.filter((sig) => {
-            const created = sig.created_at
-              ? new Date(sig.created_at)
-              : new Date();
-            return created >= threeHoursAgo;
-          });
-        }
-
+        const data = res.data.data;
         setSignals(data);
         setTotal(res.data.total);
         setStats(statsRes.data);
@@ -71,7 +76,7 @@ export default function SignalsPage() {
         setRefreshing(false);
       }
     },
-    [activeTab, page, limit],
+    [activeTab, page, limit, rank, assetType],
   );
 
   useEffect(() => {
@@ -218,10 +223,46 @@ export default function SignalsPage() {
               </Button>
             </div>
 
-            <div className="flex items-center gap-4 w-full md:w-auto self-end">
+            <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+              {/* Segment Rank Filter */}
+              <div className="flex items-center gap-3 bg-muted/30 border border-border/50 px-4 py-2 rounded-xl h-11">
+                <span className="text-[10px] text-muted-foreground font-black tracking-widest whitespace-nowrap">
+                  SEGMENT:
+                </span>
+                <Select value={rank} onValueChange={setRank}>
+                  <SelectTrigger className="w-[120px] h-7 bg-transparent border-0 focus:ring-0 text-xs font-black shadow-none p-0 uppercase tracking-tighter">
+                    <SelectValue placeholder="ALL" />
+                  </SelectTrigger>
+                  <SelectContent className="border-border/50 bg-background/95 backdrop-blur-xl">
+                    <SelectItem value="ALL" className="text-xs font-bold uppercase">All Ranks</SelectItem>
+                    <SelectItem value="ELITE" className="text-xs font-bold uppercase text-chart-5 italic">Elite Only</SelectItem>
+                    <SelectItem value="PREMIUM" className="text-xs font-bold uppercase text-primary">Premium</SelectItem>
+                    <SelectItem value="SPECULATIVE" className="text-xs font-bold uppercase text-muted-foreground">Speculative</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Asset Type Filter */}
               <div className="flex items-center gap-3 bg-muted/30 border border-border/50 px-4 py-2 rounded-xl h-11">
                 <span className="text-[10px] text-muted-foreground font-black tracking-widest">
-                  CAPACITY:
+                  ASSET:
+                </span>
+                <Select value={assetType} onValueChange={setAssetType}>
+                  <SelectTrigger className="w-[110px] h-7 bg-transparent border-0 focus:ring-0 text-xs font-black shadow-none p-0 uppercase tracking-tighter">
+                    <SelectValue placeholder="ALL" />
+                  </SelectTrigger>
+                  <SelectContent className="border-border/50 bg-background/95 backdrop-blur-xl">
+                    <SelectItem value="ALL" className="text-xs font-bold uppercase">Global</SelectItem>
+                    <SelectItem value="CRYPTO" className="text-xs font-bold uppercase">Crypto</SelectItem>
+                    <SelectItem value="FOREX" className="text-xs font-bold uppercase">Forex</SelectItem>
+                    <SelectItem value="STOCK_INDO" className="text-xs font-bold uppercase">IDX Stock</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-3 bg-muted/30 border border-border/50 px-4 py-2 rounded-xl h-11">
+                <span className="text-[10px] text-muted-foreground font-black tracking-widest uppercase">
+                  SIZE:
                 </span>
                 <Select
                   value={limit.toString()}
@@ -238,19 +279,19 @@ export default function SignalsPage() {
                       value="5"
                       className="text-xs font-bold uppercase"
                     >
-                      5 / Segment
+                      5 / Page
                     </SelectItem>
                     <SelectItem
                       value="10"
                       className="text-xs font-bold uppercase"
                     >
-                      10 / Segment
+                      10 / Page
                     </SelectItem>
                     <SelectItem
                       value="25"
                       className="text-xs font-bold uppercase"
                     >
-                      25 / Segment
+                      25 / Page
                     </SelectItem>
                   </SelectContent>
                 </Select>

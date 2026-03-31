@@ -107,6 +107,9 @@ async def process_single(asset_info):
                     "sl": data["Sl"],
                     "lot_size": data.get("LotSize", 0),
                     "status": "OPEN",
+                    "probability": data.get("ProbNum", 0),
+                    "rank": data.get("Rank", "STANDARD"),
+                    "asset_type": data.get("AssetType", "OFFSHORE"),
                     "created_at": datetime.now(timezone.utc),
                 }
                 asyncio.create_task(save_signal_background(new_signal))

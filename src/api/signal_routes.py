@@ -10,6 +10,8 @@ router = APIRouter(prefix="/signals", tags=["Trading Signals"])
 @router.get("/")
 async def get_signals(
     status: str = Query("active", enum=["active", "expired"]),
+    rank: Optional[str] = Query(None, enum=["ELITE", "PREMIUM", "SPECULATIVE"]),
+    asset_type: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(10, enum=[5, 10, 25]),
     user: dict = Depends(get_current_user)
@@ -23,6 +25,12 @@ async def get_signals(
         query["created_at"] = {"$gte": three_hours_ago}
     else:
         query["created_at"] = {"$lt": three_hours_ago}
+
+    if rank:
+        query["rank"] = rank
+    
+    if asset_type:
+        query["asset_type"] = asset_type.upper()
     
     total = await signals_collection.count_documents(query)
     cursor = signals_collection.find(query).sort("created_at", -1).skip(skip).limit(limit)

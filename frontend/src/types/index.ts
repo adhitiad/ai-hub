@@ -335,6 +335,8 @@ export interface TradingSignal {
   sl: number;
   lot_size: string;
   status: string;
+  rank?: "ELITE" | "PREMIUM" | "SPECULATIVE";
+  asset_type?: string;
   created_at: string;
   Prob?: string;
   AI_Analysis?: string;

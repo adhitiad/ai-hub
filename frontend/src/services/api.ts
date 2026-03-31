@@ -302,8 +302,13 @@ export const assetsService = {
 
 // ========== Signals ==========
 export const signalService = {
-  list: (params: { status: "active" | "expired"; page: number; limit: number }) =>
-    api.get<SignalResponse>("/signals/", { params }),
+  list: (params: {
+    status: "active" | "expired";
+    page: number;
+    limit: number;
+    rank?: string;
+    asset_type?: string;
+  }) => api.get<SignalResponse>("/signals/", { params }),
   getStats: () => api.get<SignalStats>("/signals/stats"),
 };
 

@@ -83,25 +83,44 @@ const SignalCard = ({ signal }: { signal: TradingSignal }) => {
             </div>
           </div>
 
-          <div className="text-right flex flex-col items-end gap-2">
-            <div
-              className={cn(
-                "px-5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border shadow-lg transition-all",
-                isBuy
-                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
-                  : isSell
-                    ? "bg-destructive/10 text-destructive border-destructive/30"
-                    : "bg-muted/5 text-muted-foreground border-border/50",
-              )}
-            >
-              {signal.action}
-            </div>
-            {signal.Prob && (
-              <div className="text-[10px] font-black text-muted-foreground/40 tracking-[0.3em] uppercase">
-                CONF: <span className="text-foreground">{signal.Prob}</span>
+            <div className="flex flex-col items-end gap-2">
+              <div
+                className={cn(
+                  "px-5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border shadow-lg transition-all",
+                  isBuy
+                    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                    : isSell
+                      ? "bg-destructive/10 text-destructive border-destructive/30"
+                      : "bg-muted/5 text-muted-foreground border-border/50",
+                )}
+              >
+                {signal.action}
               </div>
-            )}
-          </div>
+              <div className="flex gap-2">
+                {signal.asset_type && (
+                  <Badge variant="outline" className="text-[8px] h-4 px-1.5 font-bold uppercase tracking-widest border-border/50 text-muted-foreground bg-muted/20">
+                    {signal.asset_type}
+                  </Badge>
+                )}
+                {signal.rank && (
+                  <Badge 
+                    className={cn(
+                      "text-[8px] h-4 px-1.5 font-black uppercase tracking-widest border-0",
+                      signal.rank === "ELITE" ? "bg-chart-5 text-black animate-pulse" :
+                      signal.rank === "PREMIUM" ? "bg-primary text-primary-foreground" :
+                      "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {signal.rank}
+                  </Badge>
+                )}
+              </div>
+              {signal.Prob && (
+                <div className="text-[10px] font-black text-muted-foreground/40 tracking-[0.3em] uppercase">
+                  CONF: <span className="text-foreground">{signal.Prob}</span>
+                </div>
+              )}
+            </div>
         </div>
       </CardHeader>
 
