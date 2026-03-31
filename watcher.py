@@ -1,8 +1,6 @@
 import asyncio  # Pastikan ada
 from datetime import datetime, timezone
 
-import pandas as pd
-import pytz
 import yfinance as yf
 
 import ccxt.async_support as ccxt
@@ -187,7 +185,7 @@ async def check_positions():
         else:
             # Forex: (Selisih / PipScale) * (Lot * ContractSize) - Komisi - Spread
             # Simplifikasi estimasi USD
-            pip_val = 10  # Standard Lot ($10/pip)
+
             pnl_pips = pnl_gross * 10000  # Asumsi pair 4 digit
             pnl_net = (pnl_pips * lot_size * 10) - (COMMISSION_FX * lot_size)
 

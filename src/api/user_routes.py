@@ -1,6 +1,6 @@
 import secrets
 
-from fastapi import APIRouter, Body, Depends, Request
+from fastapi import APIRouter, Body, Depends
 from pydantic import BaseModel
 
 from src.api.auth import get_current_user

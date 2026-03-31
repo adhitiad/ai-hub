@@ -10,7 +10,6 @@ import datetime
 import logging
 import os
 import warnings
-from concurrent.futures import ThreadPoolExecutor
 
 import dotenv
 
@@ -19,7 +18,6 @@ logging.getLogger("gym").setLevel(logging.ERROR)
 # Suppress gym deprecation warning from gym package used by SB3
 warnings.filterwarnings("ignore", message=".*Gym has been unmaintained.*")
 
-import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
@@ -144,7 +142,7 @@ async def run_batch_training(
     success_count = sum(1 for result in results if result is True)
     failed_count = len(symbols) - success_count
 
-    logger.info(f"🎉 Batch Training Completed!")
+    logger.info("🎉 Batch Training Completed!")
     logger.info(f"✅ Success: {success_count}")
     logger.info(f"❌ Failed: {failed_count}")
 

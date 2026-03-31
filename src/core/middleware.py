@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware
 
 from src.core.logger import logger
 from src.database.database import db  # Asumsi ada koneksi DB

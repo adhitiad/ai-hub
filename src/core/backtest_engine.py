@@ -1,15 +1,13 @@
 import glob
 import os
-from pathlib import Path
 
 import numpy as np
-import pandas as pd
 from stable_baselines3 import PPO
 
 from src.core.config_assets import get_asset_info
 from src.core.logger import logger
 from src.database.data_loader import fetch_data_async
-from src.feature.feature_enginering import enrich_data, get_model_input
+from src.feature.feature_enginering import enrich_data
 
 MODELS_DIR = "models"
 
@@ -80,7 +78,7 @@ async def run_backtest_simulation(symbol, period="2y", initial_balance=100000000
     equity_curve = []
 
     # Biaya transaksi simulasi
-    spread = info.get("pip_scale", 1) * 2  # Asumsi spread 2 pips/tick
+
     lot_size = 1  # Simplifikasi 1 Lot fix untuk backtest
 
     # Loop data

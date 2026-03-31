@@ -1,5 +1,4 @@
 # src/api/routes/monitoring.py
-import numpy as np
 from fastapi import APIRouter, BackgroundTasks
 
 from src.core.logger import logger

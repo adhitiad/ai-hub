@@ -1,4 +1,3 @@
-import asyncio
 import pytest
 from src.core.agent import get_detailed_signal
 

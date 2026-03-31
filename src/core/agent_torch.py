@@ -1,8 +1,5 @@
-import torch
 import torch.nn as nn
-import torch.optim as optim
 
-from src.core.torch_config import device
 
 
 # Arsitektur Model: LSTM + Attention (Standar Gold untuk Time Series)

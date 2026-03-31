@@ -33,7 +33,7 @@ def safe_eval(expr, variables):
 
         tree = ast.parse(expr, mode='eval')
         return _eval(tree.body, variables)
-    except Exception as e:
+    except Exception:
         # In production, we might want to log this
         return False
 
@@ -74,9 +74,9 @@ def _eval(node, variables):
 if __name__ == "__main__":
     # Test cases
     vars = {'CLOSE': 51000, 'RSI': 25, 'VOLUME': 1000, 'SMA20': 50000}
-    assert safe_eval('CLOSE > 50000 AND RSI < 30', vars) == True
-    assert safe_eval('CLOSE < 50000', vars) == False
-    assert safe_eval('CLOSE > 50000 and (RSI < 20 OR volume > 500)', vars) == True
-    assert safe_eval('NOT (CLOSE < 50000)', vars) == True
-    assert safe_eval('__import__("os").system("ls")', vars) == False
+    assert safe_eval('CLOSE > 50000 AND RSI < 30', vars)
+    assert not safe_eval('CLOSE < 50000', vars)
+    assert safe_eval('CLOSE > 50000 and (RSI < 20 OR volume > 500)', vars)
+    assert safe_eval('NOT (CLOSE < 50000)', vars)
+    assert not safe_eval('__import__("os").system("ls")', vars)
     print("All tests passed!")

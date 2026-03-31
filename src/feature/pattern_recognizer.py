@@ -1,5 +1,3 @@
-import numpy as np
-import pandas as pd
 
 
 def detect_chart_patterns(df):
@@ -35,13 +33,13 @@ def detect_chart_patterns(df):
     c_lower_wick = min(c_close, c_open) - c_low
 
     # Previous Candle
-    p_open, p_high, p_low, p_close = (
+    p_open, _p_high, _p_low, p_close = (
         prev["Open"],
         prev["High"],
         prev["Low"],
         prev["Close"],
     )
-    p_body = abs(p_close - p_open)
+    abs(p_close - p_open)
 
     # Hindari pembagian dengan nol
     if c_range == 0:

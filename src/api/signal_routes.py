@@ -1,9 +1,8 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional, List
+from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from src.api.auth import get_current_user
 from src.database.database import signals_collection, fix_id
-import pandas as pd
 
 router = APIRouter(prefix="/signals", tags=["Trading Signals"])
 

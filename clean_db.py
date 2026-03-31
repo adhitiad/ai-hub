@@ -24,7 +24,7 @@ async def clean_invalid_assets():
 
     for i, asset in enumerate(all_assets):
         symbol = asset["symbol"]
-        category = asset.get("category", "UNKNOWN")
+        asset.get("category", "UNKNOWN")
 
         # Log progres
         print(f"[{i+1}/{total}] Checking {symbol}...", end=" ", flush=True)
@@ -38,7 +38,7 @@ async def clean_invalid_assets():
             if df.empty or len(df) < 5:
                 # GAGAL / DATA KOSONG -> HAPUS
                 await assets_collection.delete_one({"_id": asset["_id"]})
-                print(f"❌ INVALID (No Data) -> DELETED")
+                print("❌ INVALID (No Data) -> DELETED")
                 deleted_count += 1
             else:
                 # SUKSES -> BIARKAN
@@ -52,7 +52,7 @@ async def clean_invalid_assets():
             deleted_count += 1
 
     print("-" * 50)
-    print(f"🎉 Selesai!")
+    print("🎉 Selesai!")
     print(f"✅ Aset Valid Dipertahankan: {valid_count}")
     print(f"🗑️  Aset Invalid Dihapus    : {deleted_count}")
 
@@ -60,7 +60,9 @@ async def clean_invalid_assets():
 if __name__ == "__main__":
     # Pastikan library terinstall
     try:
-        import ccxt
+        import importlib.util
+        if not importlib.util.find_spec("ccxt"):
+            raise ImportError
     except ImportError:
         print("⚠️ Library 'ccxt' belum terinstall. Install dulu: pip install ccxt")
         sys.exit(1)

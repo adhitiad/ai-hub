@@ -1,5 +1,4 @@
 # src/core/redis_client.py
-import asyncio
 import json
 import os
 from typing import Any, Dict, Optional
@@ -41,16 +40,16 @@ class RedisManager:
         redis_conn = self.redis
         if redis_conn:
             # 1. Simpan data (Persistence)
-            hset_result: int = await redis_conn.hset(  # type: ignore[misc]
+            await redis_conn.hset(  # type: ignore[misc]
                 "market_signals", symbol, json.dumps(data)
             )
 
             # 2. Publish event real-time (Pub/Sub)
             # Channel khusus per simbol dan channel global
-            publish_result1: int = await redis_conn.publish(
+            await redis_conn.publish(
                 f"signal:{symbol}", json.dumps(data)
             )
-            publish_result2: int = await redis_conn.publish(
+            await redis_conn.publish(
                 "signal:all", json.dumps(data)
             )
 

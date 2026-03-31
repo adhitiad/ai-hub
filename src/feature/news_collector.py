@@ -57,7 +57,7 @@ def get_google_news_rss(symbol, asset_type="forex"):
     news_items = []
 
     # Ambil max 5 berita terbaru dalam 24 jam terakhir
-    limit_date = datetime.now(datetime.now().astimezone().tzinfo) - timedelta(hours=24)
+    datetime.now(datetime.now().astimezone().tzinfo) - timedelta(hours=24)
 
     for entry in feed.entries[:5]:  # Ambil 5 teratas
         try:

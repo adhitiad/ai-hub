@@ -1,6 +1,5 @@
-from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 
 from src.api.auth import get_current_user
 from src.database.signal_bus import signal_bus

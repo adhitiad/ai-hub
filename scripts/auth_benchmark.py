@@ -1,7 +1,6 @@
 import asyncio
 import time
 import hashlib
-from unittest.mock import AsyncMock, MagicMock
 
 # Mocking parts of the system
 def hash_api_key(api_key: str) -> str:

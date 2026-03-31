@@ -2,9 +2,7 @@ import math
 
 from src.core.logger import logger
 from src.database.database import (
-    assets_collection,
     signals_collection,
-    users_collection,
 )
 
 
