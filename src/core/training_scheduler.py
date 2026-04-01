@@ -1,8 +1,8 @@
 import asyncio
 import json
+import aiofiles
 import os
 import shutil
-from datetime import datetime
 
 import torch
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -30,7 +30,7 @@ async def reload_ai_models():
         if ai_agent.model is None:
             logger.error("❌ AI Model not initialized")
             return
-        state_dict = torch.load(MODEL_PATH, map_location="cpu")
+        state_dict = await asyncio.to_thread(torch.load, MODEL_PATH, map_location="cpu")
         ai_agent.model.policy.load_state_dict(state_dict)
         logger.info("✅ AI Models reloaded successfully")
     except Exception as e:
@@ -44,12 +44,11 @@ async def weekly_retraining_job():
     # 1. Simpan performa model lama (jika ada)
     old_accuracy = 0.0
 
-    if os.path.exists(METRICS_PATH):
-        import json
-
-        with open(METRICS_PATH, "r") as f:
-            old_data = json.load(f)
-            old_accuracy = old_data.get("win_rate", 0)
+    if await asyncio.to_thread(os.path.exists, METRICS_PATH):
+        async with aiofiles.open(METRICS_PATH, "r") as f:
+            content = await f.read()
+            old_data = await asyncio.to_thread(json.loads, content)
+        old_accuracy = old_data.get("win_rate", 0)
 
     # 2. Jalankan Training (Hasilnya disimpan di temp path dulu)
     temp_model_path = "models/temp_new_model.pth"
@@ -68,23 +67,24 @@ async def weekly_retraining_job():
             logger.info("✅ New model is better! Upgrading production model.")
 
             # Backup model lama
-            if os.path.exists(MODEL_PATH):
-                shutil.move(MODEL_PATH, BACKUP_PATH)
+            if await asyncio.to_thread(os.path.exists, MODEL_PATH):
+                await asyncio.to_thread(shutil.move, MODEL_PATH, BACKUP_PATH)
 
             # Pasang model baru
-            shutil.move(temp_model_path, MODEL_PATH)
+            await asyncio.to_thread(shutil.move, temp_model_path, MODEL_PATH)
 
             # Simpan metrics baru
 
-            with open(METRICS_PATH, "w") as f:
-                json.dump(new_metrics, f)
+            async with aiofiles.open(METRICS_PATH, "w") as f:
+                content = await asyncio.to_thread(json.dumps, new_metrics)
+                await f.write(content)
 
             await reload_ai_models()
 
         else:
             logger.info("⚠️ New model did not improve. Discarding.")
-            if os.path.exists(temp_model_path):
-                os.remove(temp_model_path)
+            if await asyncio.to_thread(os.path.exists, temp_model_path):
+                await asyncio.to_thread(os.remove, temp_model_path)
 
     except Exception as e:
         logger.error("❌ Training Failed: %s", e)
