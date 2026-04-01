@@ -2,10 +2,42 @@ import math
 
 from src.core.logger import logger
 from src.database.database import (
-    assets_collection,
     signals_collection,
-    users_collection,
 )
+
+
+import yfinance as yf
+
+
+def _fetch_exchange_rate(quote_currency: str, base_account: str = "USD") -> float:
+    """
+    Gets exchange rate to convert quote currency back to base account currency.
+    Example: GBPJPY=X -> PnL is in JPY. Convert JPY to USD.
+    Returns USD/JPY rate inverted (1 / USDJPY) or direct rate if XXXUSD.
+    """
+    if quote_currency == base_account:
+        return 1.0
+
+    try:
+        # Check base_account -> quote_currency (e.g., USDJPY=X)
+        symbol = f"{base_account}{quote_currency}=X"
+        ticker = yf.Ticker(symbol)
+        history = ticker.history(period="1d", auto_adjust=False)
+        if not history.empty:
+            rate = history["Close"].iloc[-1]
+            return 1.0 / rate
+
+        # Check quote_currency -> base_account (e.g., EURUSD=X)
+        symbol_reverse = f"{quote_currency}{base_account}=X"
+        ticker_reverse = yf.Ticker(symbol_reverse)
+        history_reverse = ticker_reverse.history(period="1d", auto_adjust=False)
+        if not history_reverse.empty:
+            return history_reverse["Close"].iloc[-1]
+
+    except Exception as e:
+        logger.warning(f"Failed to fetch exchange rate for {quote_currency}: {e}")
+
+    return 1.0
 
 
 def calculate_lot_size(balance, risk_percentage, sl_price, entry_price, asset_info):
@@ -56,10 +88,19 @@ def calculate_lot_size(balance, risk_percentage, sl_price, entry_price, asset_in
         # Value per Lot = Multiplier * Price_Change
 
         risk_per_lot_unit = sl_distance * multiplier
-        # Note: Untuk pair XXXUSD, ini akurat. Untuk Cross pair butuh konversi rate.
-        # Kita simplifikasi asumsi akun USD.
 
-        raw_lot = risk_amount / risk_per_lot_unit
+        # Note: Konversi rate untuk cross pair (Asumsi akun USD)
+        symbol = asset_info.get("symbol", "")
+        exchange_rate = 1.0
+        if symbol and len(symbol) >= 6 and symbol.endswith("=X"):
+            quote_currency = symbol[3:6]
+            if quote_currency != "USD":
+                exchange_rate = _fetch_exchange_rate(quote_currency, "USD")
+
+        risk_per_lot_unit_usd = risk_per_lot_unit * exchange_rate
+        raw_lot = (
+            risk_amount / risk_per_lot_unit_usd if risk_per_lot_unit_usd > 0 else 0
+        )
         final_lot = round(raw_lot, 2)  # 2 Desimal (0.01)
         if final_lot < 0.01:
             final_lot = 0.01
@@ -164,11 +205,22 @@ def calculate_kelly_lot(balance, win_rate_prob, risk_reward_ratio, sl_pips, asse
     else:  # Forex
         risk_per_lot_unit = sl_distance * multiplier
         if risk_per_lot_unit > 0:
-            final_lot = round(risk_amount / risk_per_lot_unit, 2)
+            symbol = asset_info.get("symbol", "")
+            exchange_rate = 1.0
+            if symbol and len(symbol) >= 6 and symbol.endswith("=X"):
+                quote_currency = symbol[3:6]
+                if quote_currency != "USD":
+                    exchange_rate = _fetch_exchange_rate(quote_currency, "USD")
+
+            risk_per_lot_unit_usd = risk_per_lot_unit * exchange_rate
+            if risk_per_lot_unit_usd > 0:
+                final_lot = round(risk_amount / risk_per_lot_unit_usd, 2)
+            else:
+                final_lot = 0
             if final_lot < 0.01:
                 final_lot = 0.01
 
-    return final_lot, f"Kelly {k_percent*100:.1f}%"
+    return final_lot, f"Kelly {k_percent * 100:.1f}%"
 
 
 # Fungsi Wrapper agar kompatibel dengan kode lama
